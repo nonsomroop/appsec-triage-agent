@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=77"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "appsec-triage-agent"
+version = "0.1.0"
+description = "Scanner-first application security triage with optional LLM assessments"
+readme = "README.md"
+requires-python = ">=3.11"
+license = "MIT"
+dependencies = ["pydantic>=2.12,<3", "openai-agents>=0.24,<1", "semgrep>=1.140,<2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8,<10"]
+
+[project.scripts]
+appsec-triage = "appsec_triage.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+appsec_triage = ["web_ui.html"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
