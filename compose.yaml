@@ -3,6 +3,12 @@ services:
     build: .
     init: true
     command: ["ui", "--port", "${APPSEC_PORT:-8765}"]
+    healthcheck:
+      test: ["CMD", "python", "-c", "import json, urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:${APPSEC_PORT:-8765}/api/job', timeout=2))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
     ports:
       - "127.0.0.1:${APPSEC_PORT:-8765}:${APPSEC_PORT:-8765}"
     volumes:
