@@ -1,0 +1,25 @@
+name: Container smoke test
+on: [push, pull_request]
+permissions:
+  contents: read
+jobs:
+  scan:
+    strategy:
+      matrix:
+        runner: [ubuntu-24.04, ubuntu-24.04-arm]
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker compose build
+      - run: docker compose up -d
+      - run: curl --fail --retry 10 --retry-connrefused http://127.0.0.1:8765/api/job
+      - name: Scan the mounted example with both scanners
+        run: |
+          export APPSEC_SCAN_DIR="$(mktemp -d)"
+          chmod 755 "$APPSEC_SCAN_DIR"
+          cp examples/vulnerable_app/app.py "$APPSEC_SCAN_DIR/"
+          echo "requests==2.19.1" > "$APPSEC_SCAN_DIR/requirements.txt"
+          docker compose run --rm dashboard scan /workspace --scanner all > report.json
+          jq -e '.scan.status == "completed"
+            and any(.scan.findings[]; .scanner == "semgrep")
+            and any(.scan.findings[]; .scanner == "trivy" and .package_name == "requests")' report.json

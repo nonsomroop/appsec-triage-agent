@@ -13,7 +13,7 @@ from pydantic import ValidationError
 
 from appsec_triage.models.finding import Finding
 from appsec_triage.models.scan import Scan
-from appsec_triage.utils.source_reader import SECRET_DIRECTORIES, SECRET_PATTERNS
+from appsec_triage.utils.source_reader import SECRET_DIRECTORIES, SECRET_PATTERNS, SourceReader, SourceReadError
 from .base import validate_target
 
 
@@ -76,6 +76,7 @@ def run_semgrep(command: list[str], root: Path, timeout: int,
 def parse_semgrep(payload: dict, root: Path) -> tuple[list[Finding], list[str]]:
     if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
         raise ScannerError("Invalid Semgrep JSON structure")
+    reader = SourceReader(root, context_lines=3, max_context_chars=6000)
     findings = []
     errors = []
     severity_map = {"ERROR": "high", "WARNING": "medium", "INFO": "info",
@@ -93,7 +94,7 @@ def parse_semgrep(payload: dict, root: Path) -> tuple[list[Finding], list[str]]:
                 cwe = [cwe]
             identity = ["semgrep", result["check_id"], path, result["start"], result["end"]]
             finding_id = hashlib.sha256(json.dumps(identity, sort_keys=True).encode()).hexdigest()
-            findings.append(Finding(
+            finding = Finding(
                 id=finding_id, scanner="semgrep", rule_id=result["check_id"],
                 title=metadata.get("shortDescription") or result["check_id"],
                 severity=severity_map.get(str(extra.get("severity", "")).upper(), "unknown"),
@@ -102,7 +103,12 @@ def parse_semgrep(payload: dict, root: Path) -> tuple[list[Finding], list[str]]:
                 metadata={"rule_metadata": metadata, "original_severity": extra.get("severity"),
                           "start": result["start"], "end": result["end"],
                           "fingerprint": extra.get("fingerprint"), "engine_kind": extra.get("engine_kind")},
-            ))
+            )
+            try:
+                finding.source_snippet = reader.read(path, finding.start_line, finding.end_line)
+            except SourceReadError as exc:
+                finding.source_error = str(exc)
+            findings.append(finding)
         except (KeyError, TypeError, ValueError, AttributeError, OSError, ValidationError):
             errors.append(f"Could not normalise Semgrep result {index}")
     scanner_errors = payload.get("errors", [])

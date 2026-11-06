@@ -1,0 +1,23 @@
+services:
+  dashboard:
+    build: .
+    init: true
+    command: ["ui", "--port", "${APPSEC_PORT:-8765}"]
+    ports:
+      - "127.0.0.1:${APPSEC_PORT:-8765}:${APPSEC_PORT:-8765}"
+    volumes:
+      - type: bind
+        source: ${APPSEC_SCAN_DIR:-./examples/vulnerable_app}
+        target: /workspace
+        read_only: true
+        bind:
+          create_host_path: false
+      - trivy-cache:/home/scanner/.cache/trivy
+      - projects:/home/scanner/.appsec-triage
+    environment:
+      APPSEC_MOUNT_LABEL: ${APPSEC_SCAN_DIR:-./examples/vulnerable_app}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_MODEL: ${OPENAI_MODEL:-}
+volumes:
+  projects:
+  trivy-cache:

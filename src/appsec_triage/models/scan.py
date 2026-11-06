@@ -12,6 +12,7 @@ class Scan(BaseModel):
     target: str
     scanner: str
     scanner_version: str | None = None
+    scanner_statuses: dict[str, Literal["completed", "partial", "failed", "running"]] = Field(default_factory=dict)
     started_at: AwareDatetime = Field(default_factory=lambda: datetime.now(timezone.utc))
     completed_at: AwareDatetime | None = None
     status: Literal["running", "completed", "partial", "failed"] = "running"

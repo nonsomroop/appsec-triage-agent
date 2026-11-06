@@ -8,6 +8,8 @@ from appsec_triage.config import Settings
 from appsec_triage.reporting.json_reporter import write_report
 from appsec_triage.scanners.semgrep import SemgrepScanner
 from appsec_triage.services.pipeline import Pipeline
+from appsec_triage.scanners.trivy import TrivyScanner
+from appsec_triage.scanners.combined import CombinedScanner
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -21,6 +23,7 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--output", type=Path, help="JSON file; defaults to stdout")
         command.add_argument("--config", type=Path, help="Application TOML configuration")
         command.add_argument("--max-findings", type=int, help="Limit assessments, never scan findings; 0 disables assessment")
+        command.add_argument("--scanner", choices=("semgrep", "trivy", "all"), default="semgrep")
         command.add_argument("--verbose", action="store_true")
     args = parser.parse_args(argv)
     if args.command == "ui":
@@ -47,8 +50,12 @@ def main(argv: list[str] | None = None) -> int:
 
             triage = TriageService(SourceReader(args.target), settings.openai_model)
         logger.info("Starting %s", args.command)
+        scanners = {"semgrep": lambda: SemgrepScanner(settings.semgrep_config, settings.scan_timeout),
+                    "trivy": lambda: TrivyScanner(settings.scan_timeout)}
+        scanner = (CombinedScanner([factory() for factory in scanners.values()])
+                   if args.scanner == "all" else scanners[args.scanner]())
         report = asyncio.run(Pipeline(
-            SemgrepScanner(settings.semgrep_config, settings.scan_timeout), triage,
+            scanner, triage,
         ).run(args.target, limit))
         if args.output:
             write_report(report, args.output)

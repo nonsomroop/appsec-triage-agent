@@ -1,35 +1,169 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AppSec · Triage workspace</title>
 <style>
-:root{font-family:Segoe UI,system-ui,sans-serif;color:#1c2b38;background:#f3f5f7;font-size:14px}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button,.upload{cursor:pointer;border:1px solid #ccd5dd;background:white;border-radius:7px;padding:10px 14px;color:#243a4b}button:hover,.upload:hover{background:#eef3f6}button:disabled{opacity:.5;cursor:wait}.primary{background:#176c59;color:white;border-color:#176c59}.primary:hover{background:#105443}header{background:#132c36;color:white;padding:22px 4%;display:flex;align-items:center;justify-content:space-between}.brand{font-size:19px;font-weight:700;letter-spacing:-.5px}.brand span{color:#73d6b6}header small{color:#b6c9ce}main{max-width:1480px;margin:30px auto;padding:0 4%}h1{font-size:28px;letter-spacing:-1px;margin:0 0 8px}h2{font-size:18px;margin:0 0 16px}h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#607280;margin-top:24px}p{line-height:1.65} .muted{color:#687b88}.intro{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:26px}.actions{display:flex;gap:10px;flex-wrap:wrap}.panel{background:white;border:1px solid #dfe5ea;border-radius:10px;padding:22px}.scan-form{margin-bottom:20px}form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:600}input,select{padding:10px;border:1px solid #cdd6de;border-radius:6px;background:white;color:#243a4b;min-width:0}label.path{flex:1;min-width:230px}input[type=number]{width:90px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.stat{padding:18px 22px}.stat strong{display:block;font-size:27px;margin-top:5px}.workspace{display:grid;grid-template-columns:minmax(320px, .9fr) minmax(0,1.3fr);gap:20px}.filters{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.filters input{flex:1;min-width:140px}.findings{padding:0;overflow:hidden}.list-head{padding:22px 22px 0}.list{max-height:650px;overflow:auto}.finding{display:block;width:100%;text-align:left;border:0;border-radius:0;border-top:1px solid #e8edf0;padding:18px 22px}.finding[aria-pressed=true]{background:#edf7f3;box-shadow:inset 3px 0 #17836a}.finding-title{font-weight:600;display:block;margin:10px 0;overflow-wrap:anywhere}.badge{display:inline-block;font-size:11px;padding:4px 8px;border-radius:4px;background:#edf0f3;color:#4b5e6c;text-transform:uppercase;font-weight:700}.high,.critical{background:#fbe9e8;color:#a83736}.medium{background:#fff2d9;color:#94620e}.low{background:#e7f0ff;color:#32629a}.positive{background:#e4f4ed;color:#21694e}.detail{overflow-wrap:anywhere;min-height:420px}.detail h2{line-height:1.5}pre{white-space:pre-wrap;line-height:1.65;font:inherit}li{line-height:1.65;margin-bottom:8px}.empty{padding:50px 25px;text-align:center;color:#6c7d89}.notice{padding:13px 17px;border-radius:7px;background:#e7eef4;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere}.error{background:#fbe9e8;color:#8e3333}.metadata{font-family:Consolas,monospace;font-size:12px}#report-meta{overflow-wrap:anywhere}.hidden{display:none!important}:focus-visible{outline:3px solid #3da88e;outline-offset:2px}@media(max-width:850px){.workspace{grid-template-columns:1fr}.intro{align-items:start;flex-direction:column}.stats{grid-template-columns:repeat(2,1fr)}header small{display:none}}
+:root{font-family:Segoe UI,system-ui,sans-serif;color:#1c2b38;background:#f3f5f7;font-size:14px}*{box-sizing:border-box}body{margin:0}button,input,select{font:inherit}button,.upload{cursor:pointer;border:1px solid #ccd5dd;background:white;border-radius:7px;padding:10px 14px;color:#243a4b}button:hover,.upload:hover{background:#eef3f6}button:disabled{opacity:.5;cursor:wait}.primary{background:#176c59;color:white;border-color:#176c59}.primary:hover{background:#105443}header{background:#132c36;color:white;padding:22px 4%;display:flex;align-items:center;justify-content:space-between}.brand{font-size:19px;font-weight:700;letter-spacing:-.5px}.brand span{color:#73d6b6}header small{color:#b6c9ce}main{max-width:1480px;margin:30px auto;padding:0 4%}h1{font-size:28px;letter-spacing:-1px;margin:0 0 8px}h2{font-size:18px;margin:0 0 16px}h3{font-size:13px;text-transform:uppercase;letter-spacing:1px;color:#607280;margin-top:24px}p{line-height:1.65} .muted{color:#687b88}.intro{display:flex;align-items:center;justify-content:space-between;gap:20px;margin-bottom:26px}.actions{display:flex;gap:10px;flex-wrap:wrap}.panel{background:white;border:1px solid #dfe5ea;border-radius:10px;padding:22px}.scan-form{margin-bottom:20px}form{display:flex;gap:12px;align-items:end;flex-wrap:wrap}label{display:flex;flex-direction:column;gap:7px;font-size:12px;font-weight:600}input,select{padding:10px;border:1px solid #cdd6de;border-radius:6px;background:white;color:#243a4b;min-width:0}label.path{flex:1;min-width:230px}input[type=number]{width:90px}.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:20px 0}.stat{padding:18px 22px}.stat strong{display:block;font-size:27px;margin-top:5px}.workspace{display:grid;grid-template-columns:minmax(320px, .9fr) minmax(0,1.3fr);gap:20px}.filters{display:flex;gap:8px;flex-wrap:wrap;margin:15px 0}.filters input{flex:1;min-width:140px}.findings{padding:0;overflow:hidden}.list-head{padding:22px 22px 0}.list{max-height:650px;overflow:auto}.finding{display:block;width:100%;text-align:left;border:0;border-radius:0;border-top:1px solid #e8edf0;padding:18px 22px}.finding[aria-pressed=true]{background:#edf7f3;box-shadow:inset 3px 0 #17836a}.finding-title{font-weight:600;display:block;margin:10px 0;overflow-wrap:anywhere}.badge{display:inline-block;font-size:11px;padding:4px 8px;border-radius:4px;background:#edf0f3;color:#4b5e6c;text-transform:uppercase;font-weight:700}.high,.critical{background:#fbe9e8;color:#a83736}.medium{background:#fff2d9;color:#94620e}.low{background:#e7f0ff;color:#32629a}.positive{background:#e4f4ed;color:#21694e}.detail{overflow-wrap:anywhere;min-height:420px}.detail h2{line-height:1.5}pre{white-space:pre-wrap;line-height:1.65;font:inherit}li{line-height:1.65;margin-bottom:8px}.empty{padding:50px 25px;text-align:center;color:#6c7d89}.notice{padding:13px 17px;border-radius:7px;background:#e7eef4;margin:16px 0;white-space:pre-wrap;overflow-wrap:anywhere}.error{background:#fbe9e8;color:#8e3333}.source-code{font-family:Consolas,monospace;font-size:13px;background:#f3f5f7;border:1px solid #dfe5ea;border-radius:6px;padding:14px;white-space:pre;overflow:auto;max-height:360px}.metadata{font-family:Consolas,monospace;font-size:12px}#report-meta{overflow-wrap:anywhere}.hidden{display:none!important}:focus-visible{outline:3px solid #3da88e;outline-offset:2px}@media(max-width:850px){.workspace{grid-template-columns:1fr}.intro{align-items:start;flex-direction:column}.stats{grid-template-columns:repeat(2,1fr)}header small{display:none}}
+#result-types{display:flex;flex-wrap:wrap;gap:6px;margin:12px 0}#result-types button[aria-pressed=true]{background:#176c59;color:white}
 </style></head><body>
 <header><div class="brand"><span>◈</span> AppSec / Triage</div><small>LOCAL WORKSPACE · 127.0.0.1</small></header>
 <main><div class="intro"><div><h1>Security findings, in focus.</h1><div class="muted">Review scanner evidence and AI assessments in one place.</div></div><div class="actions"><label class="upload">Load JSON report<input class="hidden" type="file" id="upload" accept=".json,application/json"></label><button id="export" disabled>Export report</button></div></div>
-<section class="panel scan-form"><h2>Run a scan</h2><form id="scan-form"><label>Source<select id="source"><option value="local">Local folder</option><option value="remote">GitHub / GitLab</option></select></label><label class="path"><span id="target-label">Repository folder</span><input id="target" placeholder="Choose a folder or enter its full path" required></label><button type="button" id="browse">Browse…</button><label id="branch-label" class="hidden">Branch (optional)<input id="branch" placeholder="Default branch" maxlength="200"></label><label>Mode<select id="mode"><option value="scan">Semgrep scan</option><option value="triage">Scan + AI triage</option></select></label><label>AI limit<input id="limit" type="number" min="0" max="100" value="5" required></label><button class="primary" id="run">Start scan</button></form><p class="muted hidden" id="remote-help">Use an HTTPS or SSH URL from github.com or gitlab.com. Private repositories use your configured Git credential manager or SSH agent. Configure access in your terminal first; no tokens are entered here. Temporary checkouts are deleted after scanning. Submodules and Git LFS content are not fetched.</p><p class="muted" id="mode-help">Enter a local folder. Relative paths use the folder where you started the UI.</p></section>
+<section class="panel scan-form"><h2>Projects</h2>
+<label>Project<select id="project"><option value="">New project</option></select></label>
+<div id="history" class="filters"></div></section>
+<section class="panel scan-form"><h2>Run a scan</h2><form id="scan-form"><label>Project name<input id="project-name" maxlength="120" placeholder="Repository name"></label><label>Source<select id="source"><option value="local">Local folder</option><option value="remote">GitHub / GitLab</option></select></label><label class="path"><span id="target-label">Repository folder</span><input id="target" placeholder="Choose a folder or enter its full path" required></label><button type="button" id="browse">Browse…</button><label id="branch-label" class="hidden">Branch (optional)<input id="branch" placeholder="Default branch" maxlength="200"></label><label>Scanner<select id="scanner"><option value="semgrep">SAST - Semgrep</option><option value="trivy">SCA - Trivy</option><option value="all">SAST + SCA</option></select></label><label>Mode<select id="mode"><option value="scan">Scan only</option><option value="triage">Scan + AI triage</option></select></label><label>AI limit<input id="limit" type="number" min="0" max="100" value="5" required></label><button type="button" id="save-project">Save project</button><button class="primary" id="run">Start scan</button></form><p class="muted hidden" id="remote-help">Use an HTTPS or SSH URL from github.com or gitlab.com. Private repositories use your configured Git credential manager or SSH agent. Configure access in your terminal first; no tokens are entered here. Temporary checkouts are deleted after scanning. Submodules and Git LFS content are not fetched.</p><p class="muted" id="mode-help">Enter a local folder. Relative paths use the folder where you started the UI.</p></section>
 <div id="message" class="notice hidden" role="status" aria-live="polite"></div>
 <div id="report-meta" class="muted">No report loaded · Choose a JSON report or start a scan.</div>
 <div class="stats"><div class="panel stat">Total findings<strong id="total">—</strong></div><div class="panel stat">High + critical<strong id="high">—</strong></div><div class="panel stat">AI assessed<strong id="assessed">—</strong></div><div class="panel stat">Failed assessments<strong id="failed">—</strong></div></div>
-<div class="workspace"><section class="panel findings"><div class="list-head"><h2>Findings <small id="count" class="muted"></small></h2><div class="filters"><input id="search" aria-label="Search findings" placeholder="Search rule, file, or message"><select id="severity" aria-label="Filter severity"><option value="">All severities</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>info</option><option>unknown</option></select><select id="verdict" aria-label="Filter assessment"><option value="">All assessments</option><option value="likely_true_positive">Likely true positive</option><option value="likely_false_positive">Likely false positive</option><option value="needs_review">Needs review</option><option value="failed">Failed</option><option value="unassessed">Not assessed</option></select></div></div><div class="list" id="list"><div class="empty">Your findings will appear here.</div></div></section><section class="panel detail" id="detail"><div class="empty">Select a finding to inspect its evidence and remediation.</div></section></div>
+<div class="workspace"><section class="panel findings"><div class="list-head"><h2>Findings <small id="count" class="muted"></small></h2><div id="result-types" role="group" aria-label="Finding type"></div><div class="filters"><input id="search" aria-label="Search findings" placeholder="Search rule, file, or message"><select id="severity" aria-label="Filter severity"><option value="">All severities</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>info</option><option>unknown</option></select><select id="verdict" aria-label="Filter assessment"><option value="">All assessments</option><option value="likely_true_positive">Likely true positive</option><option value="likely_false_positive">Likely false positive</option><option value="needs_review">Needs review</option><option value="failed">Failed</option><option value="unassessed">Not assessed</option></select></div></div><div class="list" id="list"><div class="empty">Your findings will appear here.</div></div></section><section class="panel detail" id="detail"><div class="empty">Select a finding to inspect its evidence and remediation.</div></section></div>
 <p class="muted">AI assessments are suggestions for human review. Scanner findings remain in the report.</p></main>
 <script>
 const $=id=>document.getElementById(id);let report=null,selected=null,busy=false;const token='__TOKEN__';
 const text=(tag,value,cls)=>{const e=document.createElement(tag);e.textContent=value??'';if(cls)e.className=cls;return e};
 function notice(message,error=false){$('message').textContent=message;$('message').className='notice'+(error?' error':'');}
 function validate(r){if(!r||r.schema_version!=='1.0'||!r.scan||!Array.isArray(r.scan.findings)||!Array.isArray(r.assessments)||!Array.isArray(r.failed_assessments))throw Error('Choose an AppSec report with schema version 1.0.');const ids=new Set();for(const f of r.scan.findings){if(!f||!['id','rule_id','file_path','severity','message'].every(k=>typeof f[k]==='string')||ids.has(f.id))throw Error('Report contains invalid or duplicate findings.');ids.add(f.id);}for(const a of r.assessments){if(!a||typeof a.finding_id!=='string'||!Array.isArray(a.evidence)||typeof a.verdict!=='string')throw Error('Report contains an invalid assessment.');}for(const a of r.failed_assessments){if(!a||typeof a.finding_id!=='string')throw Error('Report contains an invalid failed assessment.');}return r;}
-function load(r){validate(r);report=r;selected=null;$('export').disabled=false;$('search').value='';$('severity').value='';$('verdict').value='';$('total').textContent=r.scan.findings.length;$('high').textContent=r.scan.findings.filter(f=>['critical','high'].includes(f.severity)).length;$('assessed').textContent=r.assessments.length;$('failed').textContent=r.failed_assessments.length;$('report-meta').textContent=`${r.scan.status} · ${r.scan.scanner||'Scanner'} ${r.scan.scanner_version||''} · ${r.scan.target||''}`;const errors=r.scan.errors||[];if(r.scan.status!=='completed'||errors.length||r.failed_assessments.length)notice('Report needs attention: scan status '+r.scan.status+'; '+errors.length+' scanner errors; '+r.failed_assessments.length+' failed assessments.\n'+errors.map(e=>typeof e==='string'?e:JSON.stringify(e)).join('\n'),true);else notice('Report loaded successfully.');render();}
+function load(r){validate(r);report=r;selected=null;resultType='all';$('export').disabled=false;$('search').value='';$('severity').value='';$('verdict').value='';$('total').textContent=r.scan.findings.length;$('high').textContent=r.scan.findings.filter(f=>['critical','high'].includes(f.severity)).length;$('assessed').textContent=r.assessments.length;$('failed').textContent=r.failed_assessments.length;$('report-meta').textContent=`${r.scan.status} · ${r.scan.scanner||'Scanner'} ${r.scan.scanner_version||''} · ${r.scan.target||''}`;const errors=r.scan.errors||[];if(r.scan.status!=='completed'||errors.length||r.failed_assessments.length)notice('Report needs attention: scan status '+r.scan.status+'; '+errors.length+' scanner errors; '+r.failed_assessments.length+' failed assessments.\n'+errors.map(e=>typeof e==='string'?e:JSON.stringify(e)).join('\n'),true);else notice('Report loaded successfully.');render();}
 function assessment(f){return report.assessments.find(a=>a.finding_id===f.id)}
 function failure(f){return report.failed_assessments.find(a=>a.finding_id===f.id)}
 function outcome(f){return assessment(f)?.verdict||(failure(f)?'failed':'unassessed')}
-function render(){if(!report)return;const q=$('search').value.toLowerCase();const fs=report.scan.findings.filter(f=>(!$('severity').value||f.severity===$('severity').value)&&(!$('verdict').value||outcome(f)===$('verdict').value)&&[f.rule_id,f.file_path,f.message].join(' ').toLowerCase().includes(q));$('count').textContent=`${fs.length} / ${report.scan.findings.length}`;$('list').replaceChildren();if(!fs.length){$('list').append(text('div','No findings match these filters.','empty'));$('detail').replaceChildren(text('div','No finding selected.','empty'));selected=null;return}if(!fs.some(f=>f.id===selected))selected=fs[0].id;for(const f of fs){const b=text('button','','finding');b.setAttribute('aria-pressed',String(selected===f.id));b.append(text('span',f.severity,'badge '+(['critical','high','medium','low'].includes(f.severity)?f.severity:'')),text('span',f.rule_id.split('.').slice(-1)[0].replaceAll('-',' '),'finding-title'),text('span',`${f.file_path}:${f.start_line}`,'metadata muted'));b.onclick=()=>{selected=f.id;render()};$('list').append(b)}details(fs.find(f=>f.id===selected));}
+let resultType = 'all';
+function findingType(finding) {
+  return finding.category || (finding.scanner === 'trivy' ? 'sca' : 'sast');
+}
+function renderTypeButtons(scan) {
+  const group = $('result-types');
+  group.replaceChildren();
+  for (const [type, label, scanner] of [['all','All findings',null], ['sast','SAST','semgrep'], ['sca','SCA','trivy']]) {
+    const count = scan.findings.filter(f => type === 'all' || findingType(f) === type).length;
+    let caption = label + ' (' + count + ')';
+    if (scanner) {
+      const status = scan.scanner_statuses?.[scanner] || (scan.scanner === scanner ? scan.status :
+        scan.scanner?.split('+').includes(scanner) || count ? 'status unavailable' : 'not run');
+      caption += ' · ' + status;
+    }
+    const button = text('button', caption);
+    button.setAttribute('aria-pressed', String(resultType === type));
+    button.onclick = () => { resultType = type; render(); };
+    group.append(button);
+  }
+}
+function render(){if(!report)return;renderTypeButtons(report.scan);const q=$('search').value.toLowerCase();const fs=report.scan.findings.filter(f=>(resultType==='all'||findingType(f)===resultType)&&(!$('severity').value||f.severity===$('severity').value)&&(!$('verdict').value||outcome(f)===$('verdict').value)&&[f.rule_id,f.file_path,f.message,f.package_name,f.vulnerability_id].join(' ').toLowerCase().includes(q));$('count').textContent=`${fs.length} / ${report.scan.findings.length}`;$('list').replaceChildren();if(!fs.length){$('list').append(text('div','No findings match these filters.','empty'));$('detail').replaceChildren(text('div','No finding selected.','empty'));selected=null;return}if(!fs.some(f=>f.id===selected))selected=fs[0].id;for(const f of fs){const b=text('button','','finding');b.setAttribute('aria-pressed',String(selected===f.id));b.append(text('span',f.severity,'badge '+(['critical','high','medium','low'].includes(f.severity)?f.severity:'')),text('span',findingType(f)==='sca' ? f.package_name+' · '+f.rule_id : f.rule_id.split('.').slice(-1)[0].replaceAll('-',' '),'finding-title'),text('span',locationLabel(f),'metadata muted'));b.onclick=()=>{selected=f.id;render()};$('list').append(b)}details(fs.find(f=>f.id===selected));}
+function locationLabel(f){return f.file_path+(f.start_line?':'+f.start_line+(f.end_line!==f.start_line?'–'+f.end_line:''):'')}
 function section(title,value){$('detail').append(text('h3',title),text('pre',value||'Not provided.'));}
-function details(f){const d=$('detail');d.replaceChildren(text('span',f.severity,'badge '+(['critical','high','medium','low'].includes(f.severity)?f.severity:'')),text('h2',f.rule_id),text('div',`${f.file_path}:${f.start_line}${f.end_line!==f.start_line?'–'+f.end_line:''}`,'metadata muted'));section('Scanner evidence',f.message);if(f.cwe?.length)section('Classification',f.cwe.join('\n'));const a=assessment(f);if(!a){section('AI assessment',failure(f)?.error||'Not assessed. Run Scan + AI triage to add an assessment.');return}d.append(text('h3','AI assessment'),text('span',a.verdict.replaceAll('_',' '),'badge positive'));if(typeof a.confidence==='number')d.append(text('p',`${Math.round(a.confidence*100)}% model confidence · ${a.model_name||''}`,'muted'));section('Reasoning',a.reasoning_summary);d.append(text('h3','Evidence citations'));const ul=document.createElement('ul');for(const item of a.evidence)ul.append(text('li',item));d.append(ul);section('Impact',a.impact);section('Remediation',a.remediation);}
+function details(f){const d=$('detail');d.replaceChildren(text('span',f.severity,'badge '+(['critical','high','medium','low'].includes(f.severity)?f.severity:'')),text('h2',f.rule_id),text('div',locationLabel(f),'metadata muted'));section('Scanner evidence',f.message);if(f.category==='sca'){section('Dependency',`${f.package_name} · installed ${f.installed_version}`);section('Fixed version',f.fixed_version||'No fixed version reported.');section('Dependency file',f.file_path);}else{d.append(text('h3','Affected source code'));if(typeof f.source_snippet==='string'&&f.source_snippet){d.append(text('pre',f.source_snippet,'source-code'));}else{d.append(text('p',f.source_error||'Source code is not included in this report. Run a new scan to capture it.','muted'));}}if(f.cwe?.length)section('Classification',f.cwe.join('\n'));const a=assessment(f);if(!a){section('AI assessment',failure(f)?.error||(f.category==='sca'?'Dependency findings use Trivy advisory evidence; AI assessment is not enabled for SCA.':'Not assessed. Run Scan + AI triage to add an assessment.'));return}d.append(text('h3','AI assessment'),text('span',a.verdict.replaceAll('_',' '),'badge positive'));if(typeof a.confidence==='number')d.append(text('p',`${Math.round(a.confidence*100)}% model confidence · ${a.model_name||''}`,'muted'));section('Reasoning',a.reasoning_summary);d.append(text('h3','Evidence citations'));const ul=document.createElement('ul');for(const item of a.evidence)ul.append(text('li',item));d.append(ul);section('Impact',a.impact);section('Remediation',a.remediation);}
 $('upload').onchange=async e=>{try{const file=e.target.files[0];if(!file)return;if(file.size>20*1024*1024)throw Error('Report exceeds the 20 MB limit.');load(JSON.parse(await file.text()));}catch(err){notice('Unable to load report: '+err.message,true)}finally{e.target.value=''}};
 for(const id of ['search','severity','verdict'])$(id).addEventListener('input',render);
 $('export').onclick=()=>{if(!report)return;const url=URL.createObjectURL(new Blob([JSON.stringify(report,null,2)],{type:'application/json'}));const a=document.createElement('a');a.href=url;a.download='appsec-report.json';a.click();setTimeout(()=>URL.revokeObjectURL(url),1000)};
-$('mode').onchange=()=>{$('mode-help').textContent=$('mode').value==='triage'?'AI triage sends selected source excerpts to OpenAI. Start the UI with OPENAI_API_KEY and OPENAI_MODEL set.':'Enter a local folder. Relative paths use the folder where you started the UI.'};
-$('source').onchange=()=>{const remote=$('source').value==='remote';$('target-label').textContent=remote?'Repository URL':'Repository folder';$('target').value='';$('target').placeholder=remote?'https://github.com/owner/repo.git':'Choose a folder or enter its full path';$('browse').classList.toggle('hidden',remote);$('branch-label').classList.toggle('hidden',!remote);$('remote-help').classList.toggle('hidden',!remote)};
+const inContainer = __CONTAINER__;
+function updateScanHelp() {
+  const remote = $('source').value === 'remote';
+  const help = remote ? '' : inContainer
+    ? 'Use /workspace for the mounted repository, or enter a subfolder.'
+    : 'Relative paths use the folder where you started the UI.';
+  $('mode-help').textContent = [help, $('mode').value === 'triage'
+    ? 'AI triage sends selected source excerpts to OpenAI. Set OPENAI_API_KEY and OPENAI_MODEL before starting the UI.'
+    : ''].filter(Boolean).join(' ');
+  if (remote && inContainer) $('remote-help').textContent =
+    'Enter a public GitHub or GitLab URL. Private repositories require Git credentials configured inside the container.';
+}
+$('mode').onchange = updateScanHelp;
+$('source').onchange = () => {
+  const remote = $('source').value === 'remote';
+  $('target-label').textContent = remote ? 'Repository URL' : 'Repository folder';
+  $('target').value = !remote && inContainer ? '/workspace' : '';
+  $('target').placeholder = remote ? 'https://github.com/owner/repo.git' : inContainer ? '/workspace' : 'Choose a folder or enter its full path';
+  $('browse').classList.toggle('hidden', remote || inContainer);
+  $('branch-label').classList.toggle('hidden', !remote);
+  $('remote-help').classList.toggle('hidden', !remote);
+  updateScanHelp();
+};
+$('source').onchange();
 $('browse').onclick=async()=>{const button=$('browse');button.disabled=true;$('source').disabled=true;button.textContent='Choosing…';notice('Choose a repository folder in the desktop dialog.');try{const res=await fetch('/api/folder',{method:'POST',headers:{'X-Appsec-Token':token}});const body=await res.json();if(!res.ok)throw Error(body.error||'Unable to open folder picker.');if(body.path){$('target').value=body.path;notice('Folder selected. Choose Start scan when ready.')}else notice('Folder selection cancelled.')}catch(err){notice(err.message,true)}finally{button.disabled=false;$('source').disabled=false;button.textContent='Browse…'}};
-function running(value){busy=value;$('run').disabled=value;$('run').textContent=value?'Scanning…':'Start scan'}
-async function poll(){try{const res=await fetch('/api/job');if(!res.ok)throw Error('Unable to read scan status.');const job=await res.json();if(job.status==='running'){running(true);notice((job.phase||'Scan in progress')+'. AI triage may take longer.');setTimeout(poll,1500);return}running(false);if(job.report)load(job.report);else if(job.error)notice(job.error,true);}catch(e){running(false);notice(e.message+' Reload to reconnect to the local server.',true)}}
-$('scan-form').onsubmit=async e=>{e.preventDefault();if(busy)return;running(true);try{const res=await fetch('/api/scan',{method:'POST',headers:{'Content-Type':'application/json','X-Appsec-Token':token},body:JSON.stringify({target:$('target').value,mode:$('mode').value,limit:Number($('limit').value),source:$('source').value,branch:$('branch').value})});const body=await res.json();if(!res.ok)throw Error(body.error||'Unable to start scan.');poll()}catch(err){running(false);notice(err.message,true)}};poll();
+let projects = [];
+let viewGeneration = 0;
+async function api(path, data) {
+  const options = data ? {method:'POST',headers:{'Content-Type':'application/json','X-Appsec-Token':token},body:JSON.stringify(data)} : {};
+  const response = await fetch(path, options);
+  const body = await response.json();
+  if (!response.ok) throw Error(body.error || 'Dashboard request failed.');
+  return body;
+}
+function formData() {
+  return {name:$('project-name').value, project_id:Number($('project').value)||null,
+    source:$('source').value, target:$('target').value, branch:$('branch').value,
+    scanner:$('scanner').value, mode:$('mode').value, limit:Number($('limit').value)};
+}
+function clearReport() {
+  report=null; selected=null; $('export').disabled=true;
+  $('list').replaceChildren(); $('detail').replaceChildren(); $('result-types').replaceChildren();
+  $('report-meta').textContent='Choose a scan from history or start a scan.';
+  $('count').textContent='';
+  for (const key of ['total','high','assessed','failed']) $(key).textContent='—';
+  $('message').className='notice hidden';
+}
+async function showHistory() {
+  const id=$('project').value;
+  const generation=++viewGeneration;
+  const history=$('history');
+  history.replaceChildren();
+  if (!id) return;
+  const runs=await api('/api/projects/'+id+'/runs');
+  if (generation!==viewGeneration) return;
+  if (!runs.length) history.append(text('p','No scans yet.','muted'));
+  for (const run of runs) {
+    const label=[new Date(run.started).toLocaleString(), run.scanner, run.mode, run.status, run.revision?.slice(0,8)].filter(Boolean).join(' · ');
+    const button=text('button',label);
+    button.onclick=async()=>{
+      const serial=++viewGeneration;
+      try {
+        const stored=await api('/api/runs/'+run.id);
+        if (serial!==viewGeneration) return;
+        clearReport();
+        if (stored.report) { load(stored.report); $('report-meta').prepend(label+' · '); }
+        else notice(stored.error || 'Scan in progress.', Boolean(stored.error));
+      } catch(e) {notice(e.message,true);}
+    };
+    history.append(button);
+  }
+}
+function applyProject() {
+  const project=projects.find(p=>String(p.id)===$('project').value);
+  for (const field of ['source','target','branch','project-name','browse']) $(field).disabled=Boolean(project);
+  $('source').value=project?.source||'local';
+  $('source').onchange();
+  if(project) $('target').value=project.target;
+  $('project-name').value=project?.name||'';
+  $('branch').value=project?.branch||'';
+  $('save-project').hidden=Boolean(project);
+  $('run').disabled=busy || project?.available===false;
+  if(project?.available===false) notice('Mount this project’s repository to run another scan. Its saved reports are available below.');
+}
+async function refreshProjects(id=$('project').value) {
+  projects=await api('/api/projects');
+  const select=$('project'); select.replaceChildren(new Option('New project',''));
+  for(const p of projects) select.add(new Option(p.name+' · '+(p.mount||p.target)+(p.branch?' · '+p.branch:''),p.id));
+  select.value=String(id || '');
+  applyProject(); await showHistory();
+}
+$('project').onchange=async()=>{clearReport();applyProject();try{await showHistory();}catch(e){notice(e.message,true);}};
+$('save-project').onclick=async()=>{
+  if(!$('scan-form').reportValidity())return;
+  try{const project=await api('/api/projects',formData());clearReport();await refreshProjects(project.id);notice('Project saved.');}
+  catch(e){notice(e.message,true);}
+};
+function running(value){busy=value;$('project').disabled=value;$('run').disabled=value || projects.find(p=>String(p.id)===$('project').value)?.available===false;$('run').textContent=value?'Scanning…':'Start scan'}
+async function poll(){
+  try {
+    const job=await api('/api/job');
+    if(job.status==='running'){running(true);notice((job.phase||'Scan in progress')+'.');setTimeout(poll,1500);return}
+    running(false);
+    if(job.project_id) await refreshProjects(job.project_id);
+    if(job.report) load(job.report); else if(job.error) notice(job.error,true);
+    if(job.history_error) notice(job.history_error,true);
+  }catch(e){running(false);notice(e.message,true);}
+}
+$('scan-form').onsubmit=async e=>{
+  e.preventDefault();if(busy)return;running(true);
+  try{const job=await api('/api/scan',formData());clearReport();await refreshProjects(job.project_id);poll();}
+  catch(err){running(false);notice(err.message,true);}
+};
+refreshProjects().then(poll).catch(e=>notice(e.message,true));
 </script></body></html>

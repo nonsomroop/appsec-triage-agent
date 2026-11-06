@@ -84,3 +84,28 @@ def test_real_subprocess_limits(tmp_path):
         run_semgrep([sys.executable, "-c", "import time; time.sleep(10)"], tmp_path, 0.1, 1000)
     with pytest.raises(ScannerError, match="limit"):
         run_semgrep([sys.executable, "-c", "print('x' * 2000)"], tmp_path, 5, 1000)
+
+
+def test_source_excerpt_survives_report_export(tmp_path, semgrep_payload):
+    (tmp_path / "app.py").write_text("query = input()\nexecute(query)\n", encoding="utf-8")
+    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    assert not errors
+    assert findings[0].source_snippet == "1: query = input()\n2: execute(query)"
+    assert findings[0].source_error is None
+    assert "execute(query)" in findings[0].model_dump_json()
+
+
+def test_unavailable_excerpt_preserves_finding(tmp_path, semgrep_payload):
+    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    assert not errors and len(findings) == 1
+    assert findings[0].source_snippet is None
+    assert findings[0].source_error
+
+
+def test_excluded_source_is_not_embedded(tmp_path, semgrep_payload):
+    (tmp_path / ".env").write_text("SECRET=value\nOTHER=value\n", encoding="utf-8")
+    semgrep_payload["results"][0]["path"] = ".env"
+    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    assert not errors
+    assert findings[0].source_snippet is None
+    assert findings[0].source_error == "Source path is excluded"

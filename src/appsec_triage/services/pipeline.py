@@ -21,7 +21,7 @@ class Pipeline:
             raise ValueError("max_findings must be non-negative")
         report = Report(scan=self.scanner.scan(target), triage_enabled=self.triage is not None)
         if self.triage:
-            for finding in report.scan.findings[:max_findings]:
+            for finding in [f for f in report.scan.findings if f.category == "sast"][:max_findings]:
                 try:
                     assessment = await self.triage.assess(finding)
                     if assessment.finding_id != finding.id:

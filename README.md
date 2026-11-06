@@ -15,6 +15,36 @@ suppressed or removed based on a model verdict.
 
 ## Requirements and installation
 
+### Docker on Windows, macOS, and Linux
+
+Start Docker Desktop on Windows (Linux containers) or macOS. On Linux, use Docker
+Engine with the Compose plugin or Docker Desktop. From this project's directory,
+run the same command in PowerShell, Bash, or Zsh:
+
+```sh
+docker compose up --build
+```
+
+Open http://127.0.0.1:8765. The image includes Git, Semgrep, and Trivy.
+If that port is busy, set `APPSEC_PORT=8766` in the project's local `.env`,
+rerun Compose, and open http://127.0.0.1:8766.
+In **Local folder** mode, scan `/workspace` to try the included vulnerable example.
+To scan another folder, set `APPSEC_SCAN_DIR` in the project's local `.env`
+file, then run `docker compose up -d` again. Use the host's absolute path,
+for example `APPSEC_SCAN_DIR="C:/Users/Alex/My Projects/demo"` on Windows or
+`APPSEC_SCAN_DIR=/home/alex/projects/demo` on Linux. Docker must have read access
+to that folder. Its path in the dashboard is always `/workspace`.
+
+For public remote repositories, choose **GitHub / GitLab** and paste the URL.
+The container has its own Git configuration. Use the native setup below if you
+want to use your host's existing private-repository credentials and desktop picker.
+For optional AI triage, Compose passes `OPENAI_API_KEY` and `OPENAI_MODEL` from
+your shell or local `.env` into the container. Scan-only mode needs neither.
+The first Trivy scan downloads its database and later runs reuse a Docker volume.
+Run `docker compose down` to stop the dashboard and retain that cache.
+
+### Native Python setup
+
 Python 3.11+ and Semgrep CE on PATH. Use a virtual environment:
 
 ```bash
@@ -76,7 +106,10 @@ appsec-triage ui
 Open http://127.0.0.1:8765 in your browser. Use `--port 8766` if the port is busy.
 Load an existing JSON report with **Load JSON report**, search by rule, file or
 message, and filter by severity or assessment verdict. Select a finding to see
-scanner evidence, AI reasoning, citations, impact and remediation. **Export report**
+scanner evidence, numbered source excerpts, AI reasoning, citations, impact and remediation.
+New scans save bounded source excerpts in the report, including in Semgrep-only mode.
+Older reports need a new scan to include source code. Excluded or unavailable files
+show an explanation instead. Exported reports include these excerpts; treat them as sensitive. **Export report**
 downloads the complete report regardless of active filters. Imported reports stay
 in the browser and are not uploaded to the local server.
 
@@ -93,12 +126,18 @@ if needed). Cancel leaves your current path unchanged. You can always type or
 paste the path instead. The picker opens on the computer running the Python
 server and requires a graphical desktop; it is not a remote file uploader.
 
-Only one scan runs at a time. The page shows partial results, scanner errors and
-failed assessments; these are not clean security results. The latest scan result
-is kept in server memory until another scan replaces it or the server stops.
-Export it to keep a copy. Refreshing reconnects to the latest server scan; imported
-reports need to be loaded again. Press Ctrl+C in the terminal to stop the server.
-The interface binds only to IPv4 loopback and is intended for a single local user.
+Choose **New project**, enter a project name and repository, then click **Save project**
+or **Start scan**. Select a saved project to run it again or click an entry in its
+history to reopen the full report, including its SAST and SCA views. History records
+the start time, scanner, mode, Git commit when available, and outcome. Failed runs
+without reports retain their error. Only one scan runs at a time per dashboard.
+
+The dashboard stores scan history in SQLite, under `~/.appsec-triage` by default.
+Set `APPSEC_DATA_DIR` to choose another directory for native use. Compose keeps
+this directory in the named `projects` volume. Restarting or recreating the
+container preserves reports. Removing the volume deletes its history.
+Each developer has a local project library. Reports can contain source excerpts.
+Imported JSON remains in the browser. Export a report to share a copy.
 
 ### GitHub and GitLab repositories
 
@@ -161,7 +200,35 @@ to avoid copying sensitive source; errors identify failed stages/results.
 
 ## Future development
 
-Extend scanner adapters for CodeQL, Trivy and authorised ZAP scans, then add
+Extend scanner adapters for CodeQL and authorised ZAP scans, then add
 correlation, historical vulnerability management, backend APIs, a dashboard and
 CI integrations. Active DAST will require explicit authorisation; any future
 automated code changes will require human approval. None is implemented yet.
+
+## Dependency vulnerability scanning (SCA)
+
+Install Trivy separately and put its executable on PATH. See the
+[official Trivy installation instructions](https://trivy.dev/latest/getting-started/installation/).
+SCA scans supported dependency manifests and lockfiles without installing or executing packages.
+Trivy needs access to its vulnerability database, including a download on first use.
+Detection coverage depends on supported files and available version information;
+a completed scan with no findings does not prove that all dependencies were identified.
+
+```bash
+appsec-triage scan ./your-repository --scanner trivy --output reports/sca.json
+appsec-triage scan ./your-repository --scanner all --output reports/combined.json
+```
+
+The default scanner remains Semgrep. In the UI choose **SCA - Trivy** or **SAST + SCA**
+under Scanner. Local folders and GitHub/GitLab checkouts support both choices.
+Dependency findings include the advisory ID, package, installed version, available
+fixed version and dependency file. Missing fixes are shown explicitly; no source
+line is invented. Export preserves these fields. Scanner errors remain visible,
+and failure of either scanner makes a combined report partial or failed.
+
+SCA requires no OpenAI credentials. AI triage currently assesses only SAST findings;
+the assessment limit applies to those findings. Use scan mode for SCA alone.
+This adapter enables only library vulnerability scanning, not container, secret,
+license or misconfiguration scanning. Repository-local Trivy configuration and
+ignore files do not control its scan policy. Trivy runs with a bounded timeout
+and output size, using the same process controls as the Semgrep adapter.
