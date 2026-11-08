@@ -9,7 +9,7 @@ from appsec_triage.scanners.semgrep import ScannerError, SemgrepScanner, parse_s
 
 
 def test_normalisation(tmp_path, semgrep_payload):
-    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert errors == []
     assert findings[0].severity == "high"
     assert findings[0].cwe == ["CWE-89"]
@@ -21,13 +21,13 @@ def test_normalisation(tmp_path, semgrep_payload):
 
 def test_invalid_result_retains_good_findings(tmp_path, semgrep_payload):
     semgrep_payload["results"].append({"path": "../outside.py"})
-    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert len(findings) == len(errors) == 1
 
 
 def test_outside_path(tmp_path, semgrep_payload):
     semgrep_payload["results"][0]["path"] = "../outside.py"
-    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert not findings and errors
 
 
@@ -88,7 +88,7 @@ def test_real_subprocess_limits(tmp_path):
 
 def test_source_excerpt_survives_report_export(tmp_path, semgrep_payload):
     (tmp_path / "app.py").write_text("query = input()\nexecute(query)\n", encoding="utf-8")
-    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert not errors
     assert findings[0].source_snippet == "1: query = input()\n2: execute(query)"
     assert findings[0].source_error is None
@@ -96,7 +96,7 @@ def test_source_excerpt_survives_report_export(tmp_path, semgrep_payload):
 
 
 def test_unavailable_excerpt_preserves_finding(tmp_path, semgrep_payload):
-    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert not errors and len(findings) == 1
     assert findings[0].source_snippet is None
     assert findings[0].source_error
@@ -105,7 +105,32 @@ def test_unavailable_excerpt_preserves_finding(tmp_path, semgrep_payload):
 def test_excluded_source_is_not_embedded(tmp_path, semgrep_payload):
     (tmp_path / ".env").write_text("SECRET=value\nOTHER=value\n", encoding="utf-8")
     semgrep_payload["results"][0]["path"] = ".env"
-    findings, errors = parse_semgrep(semgrep_payload, tmp_path)
+    findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert not errors
     assert findings[0].source_snippet is None
     assert findings[0].source_error == "Source path is excluded"
+
+
+def test_semgrep_problems_become_safe_readable_warnings(tmp_path, semgrep_payload):
+    semgrep_payload["errors"] = [
+        {"level": "warn", "type": ["PartialParsing", [{"path": "x"}]], "path": "src/HomePage.tsx",
+         "message": "Syntax error at line 3: const SECRET = 'hunter2'", "spans": [{"file": "src/HomePage.tsx"}]},
+        {"level": "warn", "type": "Syntax error", "path": str(tmp_path / "data" / "loc.json"), "message": "token 'AKIA123'"},
+        {"level": "error", "type": "Timeout", "path": "big.js", "rule_id": "javascript.lang.rule-x", "message": "slow"},
+        {"level": "error", "type": "<script>alert(1)</script>", "message": "weird"},
+        "not a dict",
+    ]
+    findings, errors, warnings = parse_semgrep(semgrep_payload, tmp_path)
+    assert warnings == ["src/HomePage.tsx was only partly parsed; some code in it was not analysed",
+                        "data/loc.json could not be parsed and was skipped"]
+    assert errors == ["big.js timed out for at least one rule; it may be incompletely analysed (rule javascript.lang.rule-x)",
+                      "Semgrep reported “Unknown problem”", "Semgrep reported scan error 4"]
+    text = " ".join(errors + warnings)
+    assert "hunter2" not in text and "AKIA123" not in text and "<script>" not in text
+
+
+def test_warnings_alone_keep_scan_completed(monkeypatch, tmp_path):
+    payload = {"results": [], "version": "1", "errors": [{"level": "warn", "type": "PartialParsing", "path": "a.tsx"}]}
+    monkeypatch.setattr(semgrep, "run_semgrep", lambda *args: (0, json.dumps(payload)))
+    scan = SemgrepScanner().scan(tmp_path)
+    assert scan.status == "completed" and scan.errors == [] and len(scan.warnings) == 1

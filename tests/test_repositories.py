@@ -82,7 +82,7 @@ def test_remote_worker_cleans_checkout(monkeypatch, fail_clone):
         assert Path(args[4]).is_dir()
         Path(args[-1]).write_text('{"scan":{"status":"completed","target":"temporary"}}')
     monkeypatch.setattr("appsec_triage.web.clone_repository", clone)
-    monkeypatch.setattr("appsec_triage.web.subprocess.run", scan)
+    monkeypatch.setattr("appsec_triage.web.run_scan_process", scan)
     with LocalServer(0) as server:
         server.scan("https://github.com/owner/repo", "scan", 2, "remote", "main")
         assert not workspaces[0].exists()

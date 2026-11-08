@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 import os
 import shutil
 import signal
@@ -73,7 +74,44 @@ def run_semgrep(command: list[str], root: Path, timeout: int,
             process.wait()
 
 
-def parse_semgrep(payload: dict, root: Path) -> tuple[list[Finding], list[str]]:
+SAFE_KIND = re.compile(r"[A-Za-z][A-Za-z ]{0,40}")
+SAFE_RULE = re.compile(r"[\w.\-/:]{1,200}")
+PROBLEMS = {
+    "PartialParsing": "was only partly parsed; some code in it was not analysed",
+    "Syntax error": "could not be parsed and was skipped",
+    "Lexical error": "could not be read as source code and was skipped",
+    "Timeout": "timed out for at least one rule; it may be incompletely analysed",
+    "OutOfMemory": "ran out of memory during analysis; it may be incompletely analysed",
+    "Too many matches": "produced too many matches for one rule; results were capped",
+}
+
+
+def describe_problem(error: dict, root: Path) -> tuple[bool, str]:
+    """Return (is_warning, message) using only Semgrep's structured fields.
+
+    The free-text message and spans are never used: they can quote source code or secrets.
+    """
+    kind = error.get("type")
+    kind = kind[0] if isinstance(kind, list) and kind else kind
+    kind = kind if isinstance(kind, str) and SAFE_KIND.fullmatch(kind) else "Unknown problem"
+    rule = error.get("rule_id")
+    rule = rule if isinstance(rule, str) and SAFE_RULE.fullmatch(rule) else None
+    path = error.get("path")
+    try:
+        candidate = Path(path)
+        candidate = (candidate if candidate.is_absolute() else root / candidate).resolve()
+        path = candidate.relative_to(root).as_posix()
+        path = path if path.isprintable() and len(path) <= 500 else None
+    except (TypeError, ValueError, OSError):
+        path = None
+    detail = PROBLEMS.get(kind, f"reported “{kind}”")
+    message = f"{path} {detail}" if path else f"Semgrep reported “{kind}”"
+    if rule:
+        message += f" (rule {rule})"
+    return error.get("level") in ("warn", "info"), message
+
+
+def parse_semgrep(payload: dict, root: Path) -> tuple[list[Finding], list[str], list[str]]:
     if not isinstance(payload, dict) or not isinstance(payload.get("results"), list):
         raise ScannerError("Invalid Semgrep JSON structure")
     reader = SourceReader(root, context_lines=3, max_context_chars=6000)
@@ -111,13 +149,18 @@ def parse_semgrep(payload: dict, root: Path) -> tuple[list[Finding], list[str]]:
             findings.append(finding)
         except (KeyError, TypeError, ValueError, AttributeError, OSError, ValidationError):
             errors.append(f"Could not normalise Semgrep result {index}")
+    warnings = []
     scanner_errors = payload.get("errors", [])
     if not isinstance(scanner_errors, list):
         errors.append("Invalid Semgrep errors structure")
     else:
-        # Do not copy diagnostics that may embed source or secret values.
-        errors.extend(f"Semgrep reported scan error {index}" for index, _ in enumerate(scanner_errors))
-    return findings, errors
+        for index, problem in enumerate(scanner_errors):
+            if not isinstance(problem, dict):
+                errors.append(f"Semgrep reported scan error {index}")
+                continue
+            is_warning, message = describe_problem(problem, root)
+            (warnings if is_warning else errors).append(message)
+    return findings, errors, warnings
 
 
 class SemgrepScanner:
@@ -150,7 +193,7 @@ class SemgrepScanner:
             code, output = run_semgrep(command, root, self.timeout, self.max_output_bytes)
             try:
                 payload = json.loads(output)
-                scan.findings, scan.errors = parse_semgrep(payload, root)
+                scan.findings, scan.errors, scan.warnings = parse_semgrep(payload, root)
                 version = payload.get("version")
                 scan.scanner_version = version if isinstance(version, str) else None
             except (json.JSONDecodeError, ScannerError):

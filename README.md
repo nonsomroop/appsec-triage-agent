@@ -1,8 +1,8 @@
 # AppSec Triage Agent
 
 A scanner-first application security triage platform built as a modular Python
-monolith. Semgrep Community Edition produces normalised evidence; optional OpenAI
-Agents SDK analysis adds independent assessments. Findings are never automatically
+monolith. Semgrep Community Edition produces normalised evidence; optional AI
+analysis from OpenAI, Anthropic Claude or Google Gemini adds independent assessments. Findings are never automatically
 suppressed or removed based on a model verdict.
 
 ## Current features
@@ -11,6 +11,7 @@ suppressed or removed based on a model verdict.
 - Pydantic v2 models and JSON reports with severity counts and failed assessments.
 - Read-only, repository-scoped source context with traversal, link and secret-file checks.
 - Optional structured triage, evidence citations, remediation and conservative review outcomes.
+- Choice of AI provider: OpenAI (Agents SDK), Anthropic Claude or Google Gemini.
 - Offline tests using mocked scanner/model responses.
 
 ## Requirements and installation
@@ -38,8 +39,9 @@ to that folder. Its path in the dashboard is always `/workspace`.
 For public remote repositories, choose **GitHub / GitLab** and paste the URL.
 The container has its own Git configuration. Use the native setup below if you
 want to use your host's existing private-repository credentials and desktop picker.
-For optional AI triage, Compose passes `OPENAI_API_KEY` and `OPENAI_MODEL` from
-your shell or local `.env` into the container. Scan-only mode needs neither.
+For optional AI triage, Compose passes the provider variables listed under
+[AI providers](#ai-providers) from your shell or local `.env` into the container.
+Scan-only mode needs none of them.
 The first Trivy scan downloads its database and later runs reuse a Docker volume.
 Run `docker compose down` to stop the dashboard and retain that cache.
 
@@ -57,9 +59,53 @@ python -m pip install -e ".[dev]"
 ## Configuration
 
 `.env.example` lists supported environment variables; `.env` files are **not**
-loaded automatically. Export variables in your shell. Only `triage` requires
-`OPENAI_API_KEY` and `OPENAI_MODEL` (choose a model supporting structured outputs).
-Never commit credentials.
+loaded automatically. Export variables in your shell, or save keys in the
+dashboard's **Settings** page. Only `triage` requires an AI provider key. Never
+commit credentials.
+
+### AI providers
+
+| Provider | `--provider` | API key variable | Model variable | Default model |
+| --- | --- | --- | --- | --- |
+| OpenAI | `openai` | `OPENAI_API_KEY` | `OPENAI_MODEL` | none, required |
+| Anthropic Claude | `anthropic` | `ANTHROPIC_API_KEY` | `ANTHROPIC_MODEL` | `claude-opus-5-5` |
+| Google Gemini | `gemini` | `GEMINI_API_KEY` or `GOOGLE_API_KEY` | `GEMINI_MODEL` | `gemini-3.8-flash` |
+
+The provider is chosen in this order: `--provider`, then `AI_PROVIDER`, then the
+default saved in Settings, then `openai`. The model follows the same order:
+`--model`, the `*_MODEL` variable, the Settings default, then the table default.
+For example:
+
+```bash
+appsec-triage triage ./repo --provider anthropic
+appsec-triage triage ./repo --provider gemini --model gemini-4-argon
+```
+
+Every provider must return the same structured assessment schema. Claude
+requests on current models use high effort and server-side refusal fallbacks
+(`fallbacks: "default"`), so a safety-classifier decline is retried on another
+Claude model instead of failing the assessment. Report `model_name` values
+record the provider, for example `anthropic/claude-opus-5-5`.
+
+### Managing keys in the dashboard
+
+Open **Settings** to connect a provider. Paste a key and choose **Save & verify**.
+The key is checked with a free model-list request before it is saved, so an
+invalid or revoked key is rejected immediately; the same request lists the
+models the key can use, which fills the model picker. **Test connection**
+re-checks a saved key. The check proves the key authenticates; it does not
+prove billing or quota for generation.
+
+Saved keys are stored in the operating system's credential store (macOS
+Keychain, Windows Credential Manager or Linux Secret Service). Where none is
+available, including in Docker, they are stored in `credentials.json` in the
+data folder (`APPSEC_DATA_DIR`, default `~/.appsec-triage`) with owner-only
+permissions; in Docker that file lives in the `projects` volume. Set
+`APPSEC_SECRET_BACKEND=file` to force the file store. The CLI reads the same
+store, so keys saved in the dashboard also work for `appsec-triage triage`.
+
+Environment variables always take priority and cannot be changed from the
+dashboard.
 
 `--config settings.toml` accepts an application TOML file, for example:
 
@@ -104,20 +150,59 @@ appsec-triage ui
 ```
 
 Open http://127.0.0.1:8765 in your browser. Use `--port 8766` if the port is busy.
-Load an existing JSON report with **Load JSON report**, search by rule, file or
-message, and filter by severity or assessment verdict. Select a finding to see
-scanner evidence, numbered source excerpts, AI reasoning, citations, impact and remediation.
+The dashboard has two views:
+
+- **Scan**: a three-step form (repository → what to check → optional AI review)
+  with a live summary of what will run, then a progress screen with elapsed time.
+- **Results**: severity and AI-verdict summaries you can click to filter, a
+  searchable, sortable finding list (optionally grouped by file), and a detail
+  pane that leads with **How to fix**, then the AI review, affected code,
+  scanner details and CWE links. Use <kbd>j</kbd>/<kbd>k</kbd> to move between
+  findings and <kbd>/</kbd> to search.
+
+Saved projects and their scan history are in the sidebar. **Open report** loads
+an existing JSON report.
+
+While a scan runs, the progress screen shows each step live: cloning or checking
+the repository, each scanner with its finding count, the AI review finding by
+finding (for example “3 of 5 · formatted-sql-query · app/db.py:42”), and writing
+the report, with timings and an activity log. If a step fails, the error names it,
+and files Semgrep could only partly parse (often newer TypeScript/JSX syntax) are
+listed as *coverage warnings* that name the file, without failing the scan; Semgrep's
+raw diagnostic text is never copied because it can quote source code. Failed AI
+reviews give a reason such as “timed out after 240 s” or
+“provider server error, HTTP 503”. **Stop scan** ends the scan and every scanner
+process it started; the run is saved as *cancelled* and partial results are
+discarded.
+
+Each AI review may take up to `AI_TIMEOUT` seconds (default 240), including
+retries. Gemini requests retry temporary errors (429 and 5xx) with backoff, as
+the Anthropic and OpenAI SDKs already do. If a provider is overloaded, reviews
+can still fail; rerun later or pick another provider.
+
+To repeat a scan, use **Rerun scan** on the results page, the ↻ button next to a
+run in the history, or **Run again** when a scan finishes. Reruns use the same
+project, scanners, AI provider, model and finding limit as the original run.
+AI-review reruns ask for confirmation because they use API credits.
+
+To delete a project, hover over it in the sidebar and choose the bin icon, or use
+**Delete project** on its Scan page, then type the project name to confirm. This
+removes the project and all of its saved scans, findings and AI reviews from the
+dashboard; deleted rows are overwritten in the history database because reports
+contain source excerpts. It never deletes your source code: local folders and
+GitHub/GitLab repositories are left untouched (temporary clones are already
+removed after every scan). A project cannot be deleted while it is being scanned.
 New scans save bounded source excerpts in the report, including in Semgrep-only mode.
 Older reports need a new scan to include source code. Excluded or unavailable files
-show an explanation instead. Exported reports include these excerpts; treat them as sensitive. **Export report**
+show an explanation instead. Exported reports include these excerpts; treat them as sensitive. **Export**
 downloads the complete report regardless of active filters. Imported reports stay
 in the browser and are not uploaded to the local server.
 
-To scan, enter an existing local repository folder and choose **Semgrep scan** or
-**Scan + AI triage**. Relative paths resolve from the folder where the UI was
-started. AI mode uses `OPENAI_API_KEY` and `OPENAI_MODEL` inherited by the server;
-set them before starting the UI. Selected source excerpts are sent to OpenAI in
-AI mode. The assessment limit never removes scanner findings.
+To scan, enter an existing local repository folder, choose what to check, and
+optionally turn on **AI review**. Relative paths resolve from the folder where the UI was
+started. With AI review on, pick a provider and optionally a model. Connect
+providers in **Settings** first; saved keys are write-only and never returned to
+the browser. Selected source excerpts are sent to the chosen provider in AI mode. The assessment limit never removes scanner findings.
 
 For a local repository, **Browse…** opens a desktop folder chooser and fills in
 the path. Windows uses its built-in folder dialog; macOS uses its system chooser;
@@ -179,9 +264,32 @@ scan it without executing it. Detection coverage depends on the selected ruleset
 
 ## Limitations and security
 
-Triage sends bounded source excerpts and selected finding fields to OpenAI. Use it
-only for code you are authorised to share. SDK tracing is disabled and response
-storage is disabled; provider data policies still apply. Secret-file exclusions
+### Dashboard security
+
+The dashboard is a local tool and is hardened like one:
+
+- It listens on 127.0.0.1 only (in Docker, Compose publishes it on 127.0.0.1).
+- Every API request needs a per-session token embedded in the page, compared in
+  constant time. Requests must use the exact `127.0.0.1:<port>` host (blocking
+  DNS rebinding), and cross-site requests are rejected using the `Origin` and
+  `Sec-Fetch-Site` headers. Writes must be JSON and are size-limited.
+- Responses send a strict Content Security Policy (scripts only with a
+  per-response nonce, no framing, no plugins), `X-Frame-Options: DENY`,
+  `Referrer-Policy: no-referrer`, `nosniff` and `no-store`.
+- API keys are write-only, shown only as their last four characters, never
+  logged or written to history or reports, and passed to a scan only for the
+  selected provider through its environment, never its command line. Provider
+  error text is not shown, because it can echo request details.
+- Key checks are limited to one at a time and twelve per minute.
+
+Any program running as your user can read your data folder and reach the local
+port, as with other local developer tools. Use OS-level account separation if
+that is a concern.
+
+
+Triage sends bounded source excerpts and selected finding fields to the selected
+AI provider. Use it only for code you are authorised to share. For OpenAI, SDK
+tracing and response storage are disabled; each provider's data policies apply. Secret-file exclusions
 are defence in depth, not comprehensive secret detection: inline secrets may
 remain in source, scanner messages, metadata or reports. Treat reports as sensitive.
 
@@ -226,7 +334,7 @@ fixed version and dependency file. Missing fixes are shown explicitly; no source
 line is invented. Export preserves these fields. Scanner errors remain visible,
 and failure of either scanner makes a combined report partial or failed.
 
-SCA requires no OpenAI credentials. AI triage currently assesses only SAST findings;
+SCA requires no AI provider credentials. AI triage currently assesses only SAST findings;
 the assessment limit applies to those findings. Use scan mode for SCA alone.
 This adapter enables only library vulnerability scanning, not container, secret,
 license or misconfiguration scanning. Repository-local Trivy configuration and

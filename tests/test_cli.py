@@ -71,3 +71,36 @@ def test_triage_cli_mocked_sdk(monkeypatch, tmp_path, semgrep_payload, capsys):
     report = json.loads(capsys.readouterr().out)
     assert report["assessments"][0]["verdict"] == "needs_review"
     assert report["finding_counts"]["total"] == 1
+
+
+def test_triage_cli_selects_provider(monkeypatch, tmp_path, semgrep_payload, capsys):
+    from types import SimpleNamespace
+    from unittest.mock import AsyncMock
+    from appsec_triage.services import triage
+
+    created = []
+    class FakeBackend:
+        def __init__(self, model):
+            created.append(model)
+        assess = AsyncMock(return_value=dict(verdict="needs_review", confidence=0.4,
+                           reasoning_summary="Unknown trust", evidence=["app.py:2"],
+                           impact="Potential injection", remediation="Parameterise SQL"))
+    monkeypatch.setitem(triage.BACKENDS, "anthropic", FakeBackend)
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "dummy-offline-test-key")
+    monkeypatch.delenv("ANTHROPIC_MODEL", raising=False)
+    (tmp_path / "app.py").write_text("query = input()\nexecute(query)\n")
+    monkeypatch.setattr(semgrep, "run_semgrep", lambda *args: (0, json.dumps(semgrep_payload)))
+    assert main(["triage", str(tmp_path), "--provider", "anthropic"]) == 0
+    assert created == ["claude-opus-5-5"]
+    assert json.loads(capsys.readouterr().out)["assessments"][0]["model_name"] == "anthropic/claude-opus-5-5"
+    monkeypatch.setenv("AI_PROVIDER", "anthropic")
+    assert main(["triage", str(tmp_path), "--model", "claude-sonnet-5-5"]) == 0
+    assert created[-1] == "claude-sonnet-5-5"
+
+
+def test_missing_provider_key_names_variable(monkeypatch, tmp_path, capsys):
+    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+    monkeypatch.delenv("GOOGLE_API_KEY", raising=False)
+    with pytest.raises(SystemExit):
+        main(["triage", str(tmp_path), "--provider", "gemini"])
+    assert "GEMINI_API_KEY" in capsys.readouterr().err

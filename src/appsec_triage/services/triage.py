@@ -45,6 +45,69 @@ class AgentsBackend:
         return AssessmentContent.model_validate(result.final_output)
 
 
+# Current Claude models accept effort and server-side refusal fallbacks; older ones may reject them.
+CLAUDE_FALLBACK_MODELS = {"claude-fable-5-1", "claude-opus-5-5", "claude-opus-5", "claude-sonnet-5-5"}
+
+
+class AnthropicBackend:
+    def __init__(self, model_name: str):
+        from anthropic import AsyncAnthropic
+
+        self.client = AsyncAnthropic()
+        self.model_name = model_name
+
+    async def assess(self, prompt: str) -> AssessmentContent:
+        options = {}
+        if self.model_name in CLAUDE_FALLBACK_MODELS:
+            options = dict(output_config={"effort": "high"}, fallbacks="default",
+                           betas=["server-side-fallback-2026-07-01"])
+        response = await self.client.beta.messages.parse(
+            model=self.model_name, max_tokens=16000, system=INSTRUCTIONS,
+            messages=[{"role": "user", "content": prompt}],
+            output_format=AssessmentContent, **options,
+        )
+        if response.stop_reason != "end_turn" or response.parsed_output is None:
+            raise ValueError(f"Claude returned no assessment (stop reason: {response.stop_reason})")
+        return response.parsed_output
+
+
+class GeminiBackend:
+    def __init__(self, model_name: str):
+        from google import genai
+        from google.genai import types
+
+        # Gemini returns 429/5xx when overloaded; retry with backoff like the other SDKs do.
+        # The per-request timeout lets a stalled call be retried; TriageService bounds the total.
+        self.client = genai.Client(http_options=types.HttpOptions(
+            timeout=100_000, retry_options=types.HttpRetryOptions(
+                attempts=3, initial_delay=2, max_delay=20, http_status_codes=[408, 429, 500, 502, 503, 504])))
+        self.model_name = model_name
+
+    async def assess(self, prompt: str) -> AssessmentContent:
+        from google.genai import types
+
+        response = await self.client.aio.models.generate_content(
+            model=self.model_name, contents=prompt,
+            config=types.GenerateContentConfig(
+                system_instruction=INSTRUCTIONS, max_output_tokens=16000,
+                response_mime_type="application/json",
+                response_json_schema=AssessmentContent.model_json_schema(),
+            ),
+        )
+        if not response.text:
+            raise ValueError("Gemini returned no assessment")
+        return AssessmentContent.model_validate_json(response.text)
+
+
+BACKENDS = {"openai": AgentsBackend, "anthropic": AnthropicBackend, "gemini": GeminiBackend}
+
+
+def create_backend(provider: str, model_name: str) -> AssessmentBackend:
+    if provider not in BACKENDS:
+        raise ValueError(f"Unknown AI provider: {provider}")
+    return BACKENDS[provider](model_name)
+
+
 class TriageService:
     def __init__(self, reader: SourceReader, model_name: str,
                  backend: AssessmentBackend | None = None, timeout: float = 90):
