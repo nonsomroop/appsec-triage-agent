@@ -4,7 +4,7 @@ services:
     init: true
     command: ["ui", "--port", "${APPSEC_PORT:-8765}"]
     healthcheck:
-      test: ["CMD", "python", "-c", "import json, urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:${APPSEC_PORT:-8765}/api/job', timeout=2))"]
+      test: ["CMD", "python", "-c", "import json, urllib.request; json.load(urllib.request.urlopen('http://127.0.0.1:${APPSEC_PORT:-8765}/healthz', timeout=2))"]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -24,6 +24,12 @@ services:
       APPSEC_MOUNT_LABEL: ${APPSEC_SCAN_DIR:-./examples/vulnerable_app}
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_MODEL: ${OPENAI_MODEL:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-}
+      AI_PROVIDER: ${AI_PROVIDER:-}
+      AI_TIMEOUT: ${AI_TIMEOUT:-}
 volumes:
   projects:
   trivy-cache:

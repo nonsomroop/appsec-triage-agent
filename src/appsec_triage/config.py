@@ -1,6 +1,7 @@
 import os
 import tomllib
 from pathlib import Path
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -10,8 +11,12 @@ class Settings(BaseModel):
 
     semgrep_config: tuple[str, ...] = ("auto",)
     scan_timeout: int = Field(default=300, ge=1, le=86400)
+    ai_timeout: int = Field(default=240, ge=10, le=3600)  # seconds per AI review
     max_findings: int = Field(default=20, ge=0)
+    ai_provider: Literal["openai", "anthropic", "gemini"] | None = None
     openai_model: str = ""
+    anthropic_model: str = ""
+    gemini_model: str = ""
     log_level: str = "INFO"
 
     @classmethod
