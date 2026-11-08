@@ -14,7 +14,7 @@ jobs:
       - name: Wait for the dashboard to accept requests
         run: docker compose up -d --wait --wait-timeout 90
       - name: Check the published dashboard port
-        run: curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8765/api/job | jq -e '.status == "idle"'
+        run: curl --fail --silent --show-error --max-time 5 http://127.0.0.1:8765/healthz | jq -e '.ok == true'
       - name: Scan the mounted example with both scanners
         run: |
           export APPSEC_SCAN_DIR="$(mktemp -d)"
