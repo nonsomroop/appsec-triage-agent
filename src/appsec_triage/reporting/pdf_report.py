@@ -3,6 +3,10 @@
 Structure: title page, contents, 1 Executive summary, 2 Scope and methodology,
 3 Findings overview, 4 Detailed findings, Appendix A finding index.
 
+Typography uses fonts the operating system already has (no bundled assets):
+a serif for running text, a sans-serif for headings, labels and tables, and the
+platform's coding font for evidence, each with a base-14 PDF fallback.
+
 Report content (rule IDs, messages, comments, code) is untrusted: every string is
 normalised and escaped before it reaches ReportLab's paragraph markup.
 """
@@ -14,35 +18,39 @@ from pathlib import Path
 from xml.sax.saxutils import escape
 
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.pdfgen.canvas import Canvas
-from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, HRFlowable, KeepTogether, NextPageTemplate,
-                                PageBreak, PageTemplate, Paragraph, Spacer, Table, TableStyle, XPreformatted)
+from reportlab.platypus import (BaseDocTemplate, CondPageBreak, Frame, KeepTogether, NextPageTemplate, PageBreak,
+                                PageTemplate, Paragraph, Spacer, Table, TableStyle, XPreformatted)
 from reportlab.platypus.tableofcontents import TableOfContents
 
 GROUPINGS = ("category", "severity", "file", "review")
 SEVERITIES = ("critical", "high", "medium", "low", "info", "unknown")
 CATEGORIES = {"sast": "Code issues (SAST)", "sca": "Vulnerable dependencies (SCA)", "secret": "Exposed secrets"}
-CATEGORY_SHORT = {"sast": "Code (SAST)", "sca": "Dependency (SCA)", "secret": "Secret"}
+CATEGORY_SHORT = {"sast": "Code", "sca": "Dependency", "secret": "Secret"}
 AI_LABELS = {"likely_true_positive": "Likely real", "likely_false_positive": "Likely false alarm",
              "needs_review": "Needs review", "failed": "Review failed", "unassessed": "Not reviewed"}
 HUMAN_LABELS = {"confirmed": "Confirmed", "false_positive": "False positive", "accepted_risk": "Accepted risk",
                 "fixed": "Fixed", None: "Not reviewed"}
 REVIEW_ORDER = ("confirmed", "accepted_risk", None, "fixed", "false_positive")
 
-# A restrained palette: one navy accent, greys, and muted severity colours.
-NAVY, INK, MUTED = colors.HexColor("#1b2a4a"), colors.HexColor("#1a1a1a"), colors.HexColor("#5a6270")
-RULE, FILL = colors.HexColor("#c9ced8"), colors.HexColor("#f3f4f7")
-CONFIDENTIAL = "#8b1a1a"
-SEVERITY_COLORS = {"critical": "#8b1a1a", "high": "#b4410c", "medium": "#9a6b12", "low": "#2b5f9e",
-                   "info": "#4a5568", "unknown": "#6b7280"}
-HUMAN_COLORS = {"confirmed": "#8b1a1a", "false_positive": "#2f6b3f", "accepted_risk": "#9a6b12",
-                "fixed": "#2b5f9e", None: "#6b7280"}
+# ---------- theme ----------
+# Minimal theme: near-black text, greys, one indigo accent; colour only where it carries meaning.
+INDIGO = colors.HexColor("#231C66")
+GRID = colors.HexColor("#d1d5db")
+INK, MUTED, RULE = colors.HexColor("#111827"), colors.HexColor("#6b7280"), colors.HexColor("#e5e7eb")
+ROW_TINT, HEAD_FILL = colors.HexColor("#fafafa"), colors.HexColor("#f3f4f6")
+SEVERITY_COLORS = {"critical": "#dc1e1e", "high": "#e86b05", "medium": "#edea35", "low": "#66afeb",
+                   "info": "#6b7280", "unknown": "#9ca3af"}
+HUMAN_COLORS = {"confirmed": "#dc1e1e", "false_positive": "#052E96", "accepted_risk": "#e65d02",
+                "fixed": "#27bb20", None: "#9ca3af"}
+AI_COLORS = {"likely_true_positive": "#dc1e1e", "likely_false_positive": "#052E96", "needs_review": "#e65d02",
+             "failed": "#94a3b8", "unassessed": "#94a3b8"}
 SEVERITY_MEANING = {
     "critical": "Exploitable with severe impact; fix immediately.",
     "high": "Likely exploitable with significant impact; fix in the current cycle.",
@@ -57,37 +65,52 @@ HUMAN_MEANING = {
     "fixed": "The issue has been remediated.",
 }
 
-# ---------- fonts ----------
-
-ASSETS = Path(__file__).resolve().parent.parent / "assets" / "fonts"
-SERIF_SETS = [  # (regular, bold, italic, bold italic): Times New Roman, else its metric-compatible twin.
+# ---------- fonts (all from the operating system; base-14 PDF fonts as the last resort) ----------
+# Each entry: (regular, bold, italic, bold italic); a path may be (file, index) for font collections.
+SERIF_SETS = [  # running text: Times New Roman, else its metric-compatible twin
     tuple(f"/System/Library/Fonts/Supplemental/Times New Roman{s}.ttf" for s in ("", " Bold", " Italic", " Bold Italic")),
-    tuple(f"/Library/Fonts/Times New Roman{s}.ttf" for s in ("", " Bold", " Italic", " Bold Italic")),
-    tuple(f"/usr/share/fonts/truetype/msttcorefonts/Times_New_Roman{s}.ttf" for s in ("", "_Bold", "_Italic", "_Bold_Italic")),
     tuple(f"C:/Windows/Fonts/{n}.ttf" for n in ("times", "timesbd", "timesi", "timesbi")),
     tuple(f"/usr/share/fonts/truetype/liberation2/LiberationSerif-{s}.ttf" for s in ("Regular", "Bold", "Italic", "BoldItalic")),
     tuple(f"/usr/share/fonts/truetype/liberation/LiberationSerif-{s}.ttf" for s in ("Regular", "Bold", "Italic", "BoldItalic")),
 ]
-MONO_SET = (ASSETS / "UbuntuMono-Regular.ttf", ASSETS / "UbuntuMono-Bold.ttf")
-# Used per character when the main font lacks a glyph, e.g. Thai comments or code.
-FALLBACK_FONTS = [
+SANS_SETS = [  # headings, labels and tables: Arial, else Liberation Sans or DejaVu Sans
+    tuple(f"/System/Library/Fonts/Supplemental/Arial{s}.ttf" for s in ("", " Bold", " Italic", " Bold Italic")),
+    tuple(f"C:/Windows/Fonts/{n}.ttf" for n in ("arial", "arialbd", "ariali", "arialbi")),
+    tuple(f"/usr/share/fonts/truetype/liberation2/LiberationSans-{s}.ttf" for s in ("Regular", "Bold", "Italic", "BoldItalic")),
+    tuple(f"/usr/share/fonts/truetype/liberation/LiberationSans-{s}.ttf" for s in ("Regular", "Bold", "Italic", "BoldItalic")),
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf", None, None),
+]
+MONO_SETS = [  # code: each platform's own coding font
+    ("C:/Windows/Fonts/consola.ttf", "C:/Windows/Fonts/consolab.ttf", None, None),  # Consolas
+    (("/System/Library/Fonts/Menlo.ttc", 0), ("/System/Library/Fonts/Menlo.ttc", 1), None, None),  # Menlo
+    ("/usr/share/fonts/truetype/dejavu/DejaVuSansMono.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSansMono-Bold.ttf", None, None),
+    tuple(f"/usr/share/fonts/truetype/liberation/LiberationMono-{s}.ttf" for s in ("Regular", "Bold", "Italic", "BoldItalic")),
+]
+FALLBACK_FONTS = [  # per character, when the main font lacks a glyph (e.g. Thai)
     ("/usr/share/fonts/truetype/tlwg/Loma.ttf", "/usr/share/fonts/truetype/tlwg/Loma-Bold.ttf"),
     ("/System/Library/Fonts/Supplemental/Tahoma.ttf", "/System/Library/Fonts/Supplemental/Tahoma Bold.ttf"),
     ("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf", "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf"),
     ("/System/Library/Fonts/Supplemental/Arial Unicode.ttf", None),
-    ("/Library/Fonts/Arial Unicode.ttf", None),
     ("C:/Windows/Fonts/tahoma.ttf", "C:/Windows/Fonts/tahomabd.ttf"),
 ]
+BASE14 = {"serif": ("Times-Roman", "Times-Bold", "Times-Italic"),
+          "sans": ("Helvetica", "Helvetica-Bold", "Helvetica-Oblique"),
+          "mono": ("Courier", "Courier-Bold", "Courier-Oblique")}
 LATIN1 = frozenset(range(256))
 _fonts = None
+
+
+def _exists(path):
+    return path is not None and Path(path[0] if isinstance(path, tuple) else path).is_file()
 
 
 def _register_family(name, regular, bold=None, italic=None, bold_italic=None):
     names = {}
     for style, path in (("normal", regular), ("bold", bold), ("italic", italic), ("boldItalic", bold_italic)):
-        if path and Path(path).is_file():
+        if _exists(path):
             font = name if style == "normal" else f"{name}-{style}"
-            pdfmetrics.registerFont(TTFont(font, str(path)))
+            file, index = path if isinstance(path, tuple) else (path, 0)
+            pdfmetrics.registerFont(TTFont(font, file, subfontIndex=index))
             names[style] = font
     names.setdefault("bold", names["normal"])
     names.setdefault("italic", names["normal"])
@@ -97,37 +120,34 @@ def _register_family(name, regular, bold=None, italic=None, bold_italic=None):
 
 
 def fonts():
-    """Times New Roman (or Liberation Serif) for text, bundled Ubuntu Mono for code, base-14 as a last resort."""
     global _fonts
     if _fonts is not None:
         return _fonts
-    found = {"body": "Times-Roman", "bold": "Times-Bold", "italic": "Times-Italic", "mono": "Courier",
-             "mono_bold": "Courier-Bold", "fallbacks": [], "coverage": {}}
-    for paths in SERIF_SETS:
-        if all(Path(p).is_file() for p in paths[:2]):
-            try:
-                names = _register_family("ReportSerif", *paths)
-                found.update(body=names["normal"], bold=names["bold"], italic=names["italic"])
-                break
-            except Exception:
-                continue
-    try:
-        if MONO_SET[0].is_file():
-            names = _register_family("ReportMono", MONO_SET[0], MONO_SET[1])
-            found.update(mono=names["normal"], mono_bold=names["bold"])
-    except Exception:
-        pass
+    found = {"fallbacks": [], "coverage": {}}
+    for role, sets in (("serif", SERIF_SETS), ("sans", SANS_SETS), ("mono", MONO_SETS)):
+        regular, bold, italic = BASE14[role]
+        for paths in sets:
+            if _exists(paths[0]) and _exists(paths[1]):
+                try:
+                    names = _register_family(f"Report{role.title()}", *paths)
+                    regular, bold, italic = names["normal"], names["bold"], names["italic"]
+                    break
+                except Exception:
+                    continue
+        found.update({role: regular, f"{role}_bold": bold, f"{role}_italic": italic})
     for index, (regular, bold) in enumerate(FALLBACK_FONTS):
-        if Path(regular).is_file():
+        if _exists(regular):
             try:
                 names = _register_family(f"ReportFallback{index}", regular, bold)
                 found["fallbacks"].append((names["normal"], names["bold"]))
             except Exception:
                 continue
-    for name in {found[k] for k in ("body", "bold", "italic", "mono", "mono_bold")} | \
-            {n for pair in found["fallbacks"] for n in pair}:
+    names = {v for k, v in found.items() if k not in ("fallbacks", "coverage")}
+    for name in names | {n for pair in found["fallbacks"] for n in pair}:
         face = getattr(pdfmetrics.getFont(name), "face", None)
         found["coverage"][name] = frozenset(face.charToGlyph) if hasattr(face, "charToGlyph") else LATIN1
+    # Backwards-compatible aliases.
+    found.update(body=found["serif"], bold=found["serif_bold"], italic=found["serif_italic"])
     _fonts = found
     return found
 
@@ -284,44 +304,55 @@ class ReportData:
         return [(label(k), k, sorted(buckets[k], key=lambda i: (sev(i), i["f"].get("file_path") or ""))) for k in keys]
 
 
-# ---------- layout helpers ----------
+# ---------- styles and building blocks ----------
 
 def styles():
     f = fonts()
-    base = dict(fontName=f["body"], textColor=INK, fontSize=10.5, leading=14.5)
+    body = dict(fontName=f["serif"], textColor=INK, fontSize=11, leading=16)
+    sans = dict(fontName=f["sans"], textColor=INK, fontSize=9.2, leading=12.8)
     return {
-        "body": ParagraphStyle("body", **base, alignment=TA_JUSTIFY, spaceAfter=6),
-        "left": ParagraphStyle("left", **base),
-        "cell": ParagraphStyle("cell", **{**base, "fontSize": 9.5, "leading": 12.5}),
-        "cell_head": ParagraphStyle("cell_head", **{**base, "fontName": f["bold"], "fontSize": 9.5, "leading": 12.5,
-                                                     "textColor": colors.white}),
-        "label": ParagraphStyle("label", **{**base, "fontName": f["bold"], "fontSize": 9.5, "leading": 12.5,
-                                            "textColor": NAVY}),
-        "caption": ParagraphStyle("caption", **{**base, "fontName": f["italic"], "fontSize": 9, "leading": 12,
-                                                "textColor": MUTED, "spaceBefore": 3, "spaceAfter": 10}),
-        "small": ParagraphStyle("small", **{**base, "fontSize": 8.5, "leading": 11, "textColor": MUTED}),
-        "h1": ParagraphStyle("h1", **{**base, "fontName": f["bold"], "fontSize": 17, "leading": 22,
-                                      "textColor": NAVY, "spaceBefore": 4, "spaceAfter": 10}),
-        "h2": ParagraphStyle("h2", **{**base, "fontName": f["bold"], "fontSize": 13, "leading": 17,
-                                      "textColor": NAVY, "spaceBefore": 12, "spaceAfter": 6, "keepWithNext": 1}),
-        "h3": ParagraphStyle("h3", **{**base, "fontName": f["bold"], "fontSize": 11.5, "leading": 15,
-                                      "spaceBefore": 4, "spaceAfter": 6, "keepWithNext": 1}),
-        "h4": ParagraphStyle("h4", **{**base, "fontName": f["bold"], "fontSize": 10.5, "leading": 14,
-                                      "spaceBefore": 6, "spaceAfter": 2, "keepWithNext": 1}),
-        "code": ParagraphStyle("code", fontName=f["mono"], fontSize=8.6, leading=11, textColor=INK),
-        "bullet": ParagraphStyle("bullet", **base, leftIndent=14, bulletIndent=3, spaceAfter=3),
-        "toc0": ParagraphStyle("toc0", **{**base, "fontName": f["bold"], "fontSize": 11, "leading": 18}),
-        "toc1": ParagraphStyle("toc1", **{**base, "fontSize": 10.5, "leading": 16, "leftIndent": 18}),
+        "body": ParagraphStyle("body", **body, spaceAfter=7),
+        "left": ParagraphStyle("left", **body),
+        "cell": ParagraphStyle("cell", **sans),
+        "cell_center": ParagraphStyle("cell_center", **sans, alignment=TA_CENTER),
+        "cell_head": ParagraphStyle("cell_head", **{**sans, "fontName": f["sans_bold"], "textColor": INK}),
+        "label": ParagraphStyle("label", **{**sans, "fontName": f["sans_bold"], "fontSize": 8, "leading": 11,
+                                            "textColor": INDIGO}),
+        "chip": ParagraphStyle("chip", **{**sans, "fontName": f["sans_bold"], "fontSize": 8, "leading": 10}),
+        "caption": ParagraphStyle("caption", **{**sans, "fontName": f["sans_italic"], "fontSize": 8.2, "leading": 11,
+                                                "textColor": MUTED, "spaceBefore": 4, "spaceAfter": 12}),
+        "small": ParagraphStyle("small", **{**sans, "fontSize": 8.2, "leading": 11.5, "textColor": MUTED}),
+        # Section headings are coloured bands; the band colour is set per section.
+        "h1": ParagraphStyle("h1", fontName=f["sans_bold"], fontSize=19, leading=24, textColor=INK,
+                             spaceBefore=4, spaceAfter=14),
+        "h2": ParagraphStyle("h2", fontName=f["sans_bold"], fontSize=12.5, leading=16, textColor=INK,
+                             spaceBefore=16, spaceAfter=7, keepWithNext=1),
+        "h3": ParagraphStyle("h3", fontName=f["sans_bold"], fontSize=11.5, leading=15, textColor=INK, keepWithNext=1),
+        "h4": ParagraphStyle("h4", fontName=f["sans_bold"], fontSize=9, leading=12, textColor=INDIGO,
+                             spaceBefore=12, spaceAfter=4, keepWithNext=1),
+        "code": ParagraphStyle("code", fontName=f["mono"], fontSize=8.3, leading=11.2, textColor=colors.HexColor("#1e293b")),
+        "bullet": ParagraphStyle("bullet", **body, leftIndent=15, bulletIndent=3, spaceAfter=4),
+        "toc0": ParagraphStyle("toc0", fontName=f["sans_bold"], fontSize=11, leading=20, textColor=INK),
+        "toc1": ParagraphStyle("toc1", fontName=f["sans"], fontSize=10, leading=17, leftIndent=18, textColor=INK),
     }
 
 
-def sev_markup(severity):
-    color = SEVERITY_COLORS.get(severity, "#6b7280")
-    return f'<font color="{color}"><b>{escape(str(severity).upper())}</b></font>'
+def section_heading(s, text, index):
+    return Paragraph(text, s["h1"])
 
 
-def human_markup(verdict):
-    return f'<font color="{HUMAN_COLORS.get(verdict, "#6b7280")}"><b>{escape(HUMAN_LABELS.get(verdict, str(verdict)))}</b></font>'
+def sev_text(severity):
+    color = SEVERITY_COLORS.get(severity, "#94a3b8")
+    return f'<font color="{color}"><b>{escape(str(severity).title())}</b></font>'
+
+
+def human_text(verdict):
+    return f'<font color="{HUMAN_COLORS.get(verdict, "#94a3b8")}"><b>{escape(HUMAN_LABELS.get(verdict, str(verdict)))}</b></font>'
+
+
+def chip(text, color, s, width=None):
+    """A quiet label: a coloured dot followed by the text."""
+    return Paragraph(f'<font color="{color}">●</font>&nbsp;{escape(str(text).title())}', s["chip"])
 
 
 def cells(values, style):
@@ -329,14 +360,14 @@ def cells(values, style):
 
 
 def grid_table(rows, widths, header=True, align_right=()):
-    """A consistent ruled table: navy header row, light zebra rows, thin grey rules."""
+    """A ruled table: light grey header row, faint zebra rows, hairline rules."""
     table = Table(rows, colWidths=widths, repeatRows=1 if header else 0, hAlign="LEFT")
-    style = [("VALIGN", (0, 0), (-1, -1), "TOP"), ("LINEBELOW", (0, 0), (-1, -1), 0.4, RULE),
-             ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-             ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6),
-             ("ROWBACKGROUNDS", (0, 1 if header else 0), (-1, -1), [colors.white, FILL])]
+    style = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("LINEBELOW", (0, 0), (-1, -1), 0.4, RULE),
+             ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
+             ("LEFTPADDING", (0, 0), (-1, -1), 7), ("RIGHTPADDING", (0, 0), (-1, -1), 7),
+             ("ROWBACKGROUNDS", (0, 1 if header else 0), (-1, -1), [colors.white, ROW_TINT])]
     if header:
-        style += [("BACKGROUND", (0, 0), (-1, 0), NAVY), ("LINEBELOW", (0, -1), (-1, -1), 0.8, NAVY)]
+        style += [("BACKGROUND", (0, 0), (-1, 0), HEAD_FILL), ("LINEBELOW", (0, 0), (-1, 0), 0.8, MUTED)]
     for col in align_right:
         style.append(("ALIGN", (col, 1), (col, -1), "RIGHT"))
     table.setStyle(TableStyle(style))
@@ -380,28 +411,41 @@ def numbered_canvas(header_text, footer_text):
         def decorate(self, total):
             f = fonts()
             width, height = A4
-            left, right = 22 * mm, width - 22 * mm
+            left, right = 20 * mm, width - 20 * mm
             self.saveState()
-            if self._pageNumber == 1:
-                self.setFillColor(NAVY)
-                self.rect(0, height - 9 * mm, width, 9 * mm, fill=1, stroke=0)
-            else:
+            if self._pageNumber > 1:  # the title page draws its own artwork as a background
                 self.setStrokeColor(RULE)
                 self.setLineWidth(0.5)
-                self.line(left, height - 15 * mm, right, height - 15 * mm)
+                self.line(left, height - 12 * mm, right, height - 12 * mm)
                 self.setFillColor(MUTED)
-                draw_text(self, left, height - 13 * mm, header_text, f["italic"], 8.5)
-                self.setFillColor(colors.HexColor(CONFIDENTIAL))
-                draw_text(self, right, height - 13 * mm, "CONFIDENTIAL", f["bold"], 8.5, "right")
-            self.setStrokeColor(RULE)
-            self.setLineWidth(0.5)
-            self.line(left, 15 * mm, right, 15 * mm)
-            self.setFillColor(MUTED)
-            draw_text(self, left, 10.5 * mm, footer_text, f["body"], 8.5)
-            draw_text(self, right, 10.5 * mm, f"Page {self._pageNumber} of {total}", f["body"], 8.5, "right")
+                draw_text(self, left, height - 10 * mm, header_text, f["sans"], 8)
+                draw_text(self, right, height - 10 * mm, "Confidential", f["sans_bold"], 8, "right")
+                self.setStrokeColor(RULE)
+                self.setLineWidth(0.5)
+                self.line(left, 14 * mm, right, 14 * mm)
+                self.setFillColor(MUTED)
+                draw_text(self, left, 9.5 * mm, footer_text, f["sans"], 7.8)
+                draw_text(self, right, 9.5 * mm, f"Page {self._pageNumber} of {total}", f["sans"], 8, "right")
             self.restoreState()
 
     return NumberedCanvas
+
+
+def title_page_art(canvas, width, height):
+    """A single accent rule; the title page is otherwise typographic."""
+    canvas.setFillColor(INDIGO)
+    canvas.rect(20 * mm, height - 62 * mm, 18 * mm, 1.6 * mm, fill=1, stroke=0)
+
+
+def keep_captions(story):
+    """Never let a caption start a page on its own: bind it to the table or figure above."""
+    result = []
+    for flowable in story:
+        if isinstance(flowable, Paragraph) and flowable.style.name == "caption" and result:
+            result[-1] = KeepTogether([result[-1], flowable])
+        else:
+            result.append(flowable)
+    return result
 
 
 def counts(items, key, values):
@@ -425,7 +469,7 @@ def build_pdf(report: dict, reviews: dict | None = None, meta: dict | None = Non
     data = ReportData(report, reviews, options)
     scan = data.scan
     width, height = A4
-    margin_x = 22 * mm
+    margin_x = 20 * mm
     content = width - 2 * margin_x
     project = plain(meta.get("project") or scan.get("target") or "Scan report", 90).replace("\n", " ")
     now = datetime.now(timezone.utc)
@@ -442,16 +486,18 @@ def build_pdf(report: dict, reviews: dict | None = None, meta: dict | None = Non
             numbering[id(item)] = f"F-{number:03d}"
 
     buffer = BytesIO()
-    doc = ReportTemplate(buffer, pagesize=A4, leftMargin=margin_x, rightMargin=margin_x, topMargin=24 * mm,
-                         bottomMargin=22 * mm, title=f"Application Security Assessment: {project}",
+    doc = ReportTemplate(buffer, pagesize=A4, leftMargin=margin_x, rightMargin=margin_x, topMargin=20 * mm,
+                         bottomMargin=20 * mm, title=f"Application Security Assessment: {project}",
                          author="AppSec Triage", subject="Application security assessment report",
                          pageCompression=1 if compress else 0)
-    frame = Frame(margin_x, 22 * mm, content, height - 46 * mm, id="main", leftPadding=0, rightPadding=0,
+    frame = Frame(margin_x, 20 * mm, content, height - 40 * mm, id="main", leftPadding=0, rightPadding=0,
                   topPadding=0, bottomPadding=0)
-    doc.addPageTemplates([PageTemplate("title", [frame]), PageTemplate("body", [frame])])
+    title_art = lambda canvas, _doc: title_page_art(canvas, width, height)
+    doc.addPageTemplates([PageTemplate("title", [frame], onPage=title_art), PageTemplate("body", [frame])])
 
+    contents_style = ParagraphStyle("contents", parent=s["h1"])
     story = title_page(s, data, project, scanned, generated, report_id, content, meta)
-    story += [NextPageTemplate("body"), PageBreak(), Paragraph("Contents", ParagraphStyle("contents", parent=s["h1"])), Spacer(1, 4),
+    story += [NextPageTemplate("body"), PageBreak(), Paragraph("Contents", contents_style), Spacer(1, 4),
               TableOfContents(dotsMinLevel=0, levelStyles=[s["toc0"], s["toc1"]]), PageBreak()]
     story += executive_summary(s, data, project, scan, scanned, content)
     story += scope_and_methodology(s, data, scan, scanned, generated, content, meta)
@@ -459,8 +505,9 @@ def build_pdf(report: dict, reviews: dict | None = None, meta: dict | None = Non
     story += detailed_findings(s, data, groups, numbering, options, content)
     story += appendix(s, groups, numbering, content)
 
-    header = f"Application Security Assessment: {project}"
-    footer = f"{report_id} · Generated by AppSec Triage on {now.strftime('%d %b %Y')}"
+    story = keep_captions(story)
+    header = f"Application Security Assessment  ·  {project}"
+    footer = f"{report_id}  ·  Generated by AppSec Triage on {now.strftime('%d %b %Y')}"
     doc.multiBuild(story, canvasmaker=numbered_canvas(header, footer))
     return buffer.getvalue()
 
@@ -470,33 +517,47 @@ def build_pdf(report: dict, reviews: dict | None = None, meta: dict | None = Non
 def title_page(s, data, project, scanned, generated, report_id, content, meta):
     f = fonts()
     scan = data.scan
-    title = ParagraphStyle("title", parent=s["left"], fontName=f["bold"], fontSize=30, leading=36, textColor=NAVY)
-    subtitle = ParagraphStyle("subtitle", parent=s["left"], fontName=f["italic"], fontSize=15, leading=20,
-                              textColor=MUTED)
-    kicker = ParagraphStyle("kicker", parent=s["label"], fontSize=10, textColor=colors.HexColor(CONFIDENTIAL))
+    kicker = ParagraphStyle("kicker", fontName=f["sans_bold"], fontSize=9, leading=12, textColor=MUTED)
+    title = ParagraphStyle("title", fontName=f["sans_bold"], fontSize=30, leading=36, textColor=INK)
+    subtitle = ParagraphStyle("subtitle", fontName=f["serif_italic"], fontSize=16, leading=21, textColor=MUTED)
     control = [
         ("Report ID", escape(report_id)), ("Project", markup(project, 120)),
-        ("Target", markup(scan.get("target"), 300)), ("Branch", markup(meta.get("branch") or "Default", 120)),
+        ("Target", markup(scan.get("target"), 300, f["mono"])), ("Branch", markup(meta.get("branch") or "Default", 120)),
         ("Scanners", markup(scan.get("scanner") or "Not recorded", 120)),
         ("Scan status", markup(str(scan.get("status") or "Not recorded").title())),
         ("Scan date", markup(scanned)), ("Report generated", markup(generated)),
-        ("Classification", f'<font color="{CONFIDENTIAL}"><b>CONFIDENTIAL</b></font>'),
+        ("Classification", "<b>Confidential</b>"),
     ]
-    rows = [[Paragraph(label, s["label"]), Paragraph(value, s["cell"])] for label, value in control]
-    table = Table(rows, colWidths=[content * 0.3, content * 0.7], hAlign="LEFT")
-    table.setStyle(TableStyle([("LINEABOVE", (0, 0), (-1, 0), 1, NAVY), ("LINEBELOW", (0, -1), (-1, -1), 1, NAVY),
-                               ("LINEBELOW", (0, 0), (-1, -2), 0.4, RULE), ("BACKGROUND", (0, 0), (0, -1), FILL),
-                               ("VALIGN", (0, 0), (-1, -1), "TOP"), ("TOPPADDING", (0, 0), (-1, -1), 5),
-                               ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("LEFTPADDING", (0, 0), (-1, -1), 7)]))
+    rows = [[Paragraph(label.upper(), s["label"]), Paragraph(value, s["cell"])] for label, value in control]
+    table = Table(rows, colWidths=[content * 0.28, content * 0.72], hAlign="LEFT")
+    table.setStyle(TableStyle([("LINEABOVE", (0, 0), (-1, 0), 0.8, INK), ("LINEBELOW", (0, -1), (-1, -1), 0.8, INK),
+                               ("LINEBELOW", (0, 0), (-1, -2), 0.4, GRID), ("BACKGROUND", (0, 0), (0, -1), HEAD_FILL),
+                               ("LINEAFTER", (0, 0), (0, -1), 0.5, GRID),
+                               ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 6),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 6), ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
     notice = ("This document contains security findings and may contain excerpts of source code. Distribute it "
               "only to people authorised to see this information. Automated findings and AI assessments are "
               "suggestions; verdicts marked as human review were recorded by a named reviewer.")
-    return [Spacer(1, 30 * mm), Paragraph("SECURITY ASSESSMENT · CONFIDENTIAL", kicker), Spacer(1, 8),
-            Paragraph("Application Security<br/>Assessment Report", title),
-            HRFlowable(width="100%", thickness=1.5, color=NAVY, spaceBefore=10, spaceAfter=10),
-            Paragraph(markup(project, 120), subtitle), Spacer(1, 26 * mm),
-            Paragraph("Document control", s["h4"]), Spacer(1, 4), table, Spacer(1, 14 * mm),
+    return [Spacer(1, 48 * mm), Paragraph("SECURITY ASSESSMENT", kicker), Spacer(1, 10),
+            Paragraph("Application Security<br/>Assessment Report", title), Spacer(1, 12),
+            Paragraph(markup(project, 120), subtitle), Spacer(1, 40 * mm),
+            Paragraph("Document control", ParagraphStyle("doc-control", parent=s["h2"])), table, Spacer(1, 12 * mm),
             Paragraph(escape(notice), s["small"])]
+
+
+def stat_tiles(s, tiles, content):
+    """Coloured key-figure tiles: big number over a label."""
+    big = ParagraphStyle("big", fontName=fonts()["sans_bold"], fontSize=22, leading=26, alignment=TA_CENTER)
+    row = []
+    for label, value, color in tiles:
+        row.append([Paragraph(escape(str(value)), big),
+                    Paragraph(escape(label), ParagraphStyle("tl", parent=s["small"], alignment=TA_CENTER))])
+    table = Table([row], colWidths=[content / len(tiles)] * len(tiles), hAlign="LEFT")
+    style = [("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 10),
+             ("BOTTOMPADDING", (0, 0), (-1, -1), 10), ("BOX", (0, 0), (-1, -1), 0.5, RULE),
+             ("LINEAFTER", (0, 0), (-2, -1), 0.5, RULE)]
+    table.setStyle(TableStyle(style))
+    return table
 
 
 def executive_summary(s, data, project, scan, scanned, content):
@@ -529,47 +590,54 @@ def executive_summary(s, data, project, scan, scanned, content):
         models = f" ({markup(', '.join(data.models), 200)})" if data.models else ""
         paras.append(f"{plural(len(ai_items), 'code finding')} received an AI assessment{models}"
                      + (f"; reviewers overrode the AI verdict on {overrides}." if both else "."))
-    story = [Paragraph("1. Executive Summary", s["h1"])] + [Paragraph(p, s["body"]) for p in paras]
-    rating_table = Table([[Paragraph("Overall risk rating", s["label"]),
-                           Paragraph(f'<font color="{SEVERITY_COLORS[rating]}" size="13"><b>{rating.upper()}</b></font>', s["cell"]),
-                           Paragraph("Based on the most severe finding that is still open after human review.", s["small"])]],
-                         colWidths=[content * 0.27, content * 0.18, content * 0.55], hAlign="LEFT")
-    rating_table.setStyle(TableStyle([("BOX", (0, 0), (-1, -1), 1, NAVY), ("BACKGROUND", (0, 0), (0, 0), FILL),
-                                      ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 8),
-                                      ("BOTTOMPADDING", (0, 0), (-1, -1), 8), ("LEFTPADDING", (0, 0), (-1, -1), 8)]))
-    figures = [("Total findings", len(items)), ("Critical and high", sev["critical"] + sev["high"]),
-               ("Reviewed by a person", f"{reviewed} of {len(items)}"), ("Open after review", len(open_items)),
-               ("False positives (human review)", human["false_positive"]), ("AI-assessed findings", len(ai_items))]
-    rows = [cells(["Metric", "Value"], s["cell_head"])] + [cells([escape(k), str(v)], s["cell"]) for k, v in figures]
-    story += [Spacer(1, 4), rating_table, Spacer(1, 12), Paragraph("Key figures", s["h4"]),
-              grid_table(rows, [content * 0.65, content * 0.35], align_right=(1,)),
-              Paragraph("Table 1. Key figures.", s["caption"])]
+
+    rating_color = SEVERITY_COLORS[rating]
+    rating_table = Table([[Paragraph("OVERALL RISK", s["label"]),
+                           Paragraph(f'<font color="{rating_color}"><b>{rating.upper()}</b></font>',
+                                     ParagraphStyle("rv", fontName=fonts()["sans_bold"], fontSize=17, leading=21)),
+                           Paragraph("Based on the most severe finding still open after human review.", s["small"])]],
+                         colWidths=[content * 0.2, content * 0.24, content * 0.56], hAlign="LEFT")
+    rating_table.setStyle(TableStyle([("LINEABOVE", (0, 0), (-1, 0), 0.8, INK), ("LINEBELOW", (0, 0), (-1, 0), 0.8, INK),
+                                      ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 9),
+                                      ("BOTTOMPADDING", (0, 0), (-1, -1), 9), ("LEFTPADDING", (0, 0), (-1, -1), 10)]))
+    tiles = [("Total findings", len(items), "#4338ca"), ("Critical + high", sev["critical"] + sev["high"], "#be123c"),
+             ("Reviewed by a person", f"{reviewed}/{len(items)}", "#0d9488"), ("Open after review", len(open_items), "#d97706"),
+             ("False positives", human["false_positive"], "#059669")]
+    story = [section_heading(s, "1. Executive Summary", 0)] + [Paragraph(p, s["body"]) for p in paras]
+    story += [Spacer(1, 6), rating_table, Spacer(1, 14), stat_tiles(s, tiles, content),
+              Paragraph("Figure 1. Key figures.", s["caption"])]
     return story
 
 
 def scope_and_methodology(s, data, scan, scanned, generated, content, meta):
-    detail = [("Target", markup(scan.get("target"), 300)), ("Branch", markup(meta.get("branch") or "Default", 120)),
+    detail = [("Target", markup(scan.get("target"), 300, fonts()["mono"])),
+              ("Branch", markup(meta.get("branch") or "Default", 120)),
               ("Scanners", markup(scan.get("scanner") or "Not recorded", 120)),
               ("Scanner version", markup(scan.get("scanner_version") or "Not recorded", 120)),
               ("Scan completed", markup(scanned)), ("AI assessment", markup(", ".join(data.models) or "Not used", 200)),
               ("Report generated", markup(generated))]
     rows = [cells(["Item", "Detail"], s["cell_head"])]
-    rows += [[Paragraph(label, s["label"]), Paragraph(value, s["cell"])] for label, value in detail]
-    story = [PageBreak(), Paragraph("2. Scope and Methodology", s["h1"]), Paragraph("2.1 Scope", s["h2"]),
-             grid_table(rows, [content * 0.3, content * 0.7]), Paragraph("Table 2. Assessment scope.", s["caption"]),
-             Paragraph("2.2 Methodology", s["h2"]),
+    rows += [[Paragraph(f"<b>{label}</b>", s["cell"]), Paragraph(value, s["cell"])] for label, value in detail]
+    story = [PageBreak(), section_heading(s, "2. Scope and Methodology", 1), Paragraph("2.1 Scope", s["h2"]),
+             grid_table(rows, [content * 0.28, content * 0.72]),
+             Paragraph("Table 1. Assessment scope.", s["caption"]), Paragraph("2.2 Methodology", s["h2"]),
              Paragraph("The assessment combined automated scanning with optional AI and human review:", s["body"])]
-    for text in ("<b>Static analysis (SAST)</b> finds insecure code patterns such as injection or unsafe APIs.",
-                 "<b>Software composition analysis (SCA)</b> matches dependencies against known vulnerability databases.",
-                 "<b>Secret scanning</b> flags credentials committed to files or history; matched values are not stored.",
-                 "<b>AI assessment</b> reviews code findings with the surrounding source and suggests a verdict. It is advisory.",
-                 "<b>Human review</b> records a named reviewer's verdict and notes. Human verdicts take precedence in this report."):
-        story.append(Paragraph(text, s["bullet"], bulletText="•"))
+    methods = [("#4338ca", "Static analysis (SAST)", "finds insecure code patterns such as injection or unsafe APIs."),
+               ("#0d9488", "Software composition analysis (SCA)", "matches dependencies against known vulnerability databases."),
+               ("#e11d48", "Secret scanning", "flags credentials committed to files or history; matched values are not stored."),
+               ("#7c3aed", "AI assessment", "reviews code findings with the surrounding source and suggests a verdict. It is advisory."),
+               ("#d97706", "Human review", "records a named reviewer's verdict and notes. Human verdicts take precedence in this report.")]
+    for color, name, text in methods:
+        story.append(Paragraph(f"<b>{name}</b> {text}", s["bullet"], bulletText="•"))
     rows = [cells(["Term", "Meaning"], s["cell_head"])]
-    rows += [[Paragraph(sev_markup(name), s["cell"]), Paragraph(escape(text), s["cell"])] for name, text in SEVERITY_MEANING.items()]
-    rows += [[Paragraph(human_markup(name), s["cell"]), Paragraph(escape(text), s["cell"])] for name, text in HUMAN_MEANING.items()]
-    story += [Paragraph("2.3 Severity and Verdict Definitions", s["h2"]), grid_table(rows, [content * 0.3, content * 0.7]),
-              Paragraph("Table 3. Definitions.", s["caption"]), Paragraph("2.4 Limitations", s["h2"]),
+    chip_cells = []
+    for name, text in SEVERITY_MEANING.items():
+        rows.append([chip(name, SEVERITY_COLORS[name], s, 30 * mm), Paragraph(escape(text), s["cell"])])
+    for name, text in HUMAN_MEANING.items():
+        rows.append([chip(HUMAN_LABELS[name], HUMAN_COLORS[name], s, 30 * mm), Paragraph(escape(text), s["cell"])])
+    story += [Paragraph("2.3 Severity and Verdict Definitions", s["h2"]),
+              grid_table(rows, [content * 0.28, content * 0.72]),
+              Paragraph("Table 2. Definitions.", s["caption"]), Paragraph("2.4 Limitations", s["h2"]),
               Paragraph("Automated scanning cannot prove the absence of vulnerabilities. Coverage depends on the "
                         "rulesets and databases used, and on the languages and files the scanners support.", s["body"])]
     notes = [n for n in (scan.get("warnings") or []) + (scan.get("errors") or []) if isinstance(n, str)]
@@ -580,92 +648,123 @@ def scope_and_methodology(s, data, scan, scanned, generated, content, meta):
     return story
 
 
+def severity_bars(s, items, content):
+    """A horizontal bar per severity, drawn as table cells for crisp printing."""
+    total = len(items) or 1
+    bar_width = content * 0.5
+    rows = []
+    for name in SEVERITIES[:5]:
+        n = sum(1 for i in items if i["f"].get("severity") == name or (name == "info" and i["f"].get("severity") == "unknown"))
+        filled = max(bar_width * n / total, 0.1)
+        bar = Table([["", ""]], colWidths=[filled, max(bar_width - filled, 0.1)], rowHeights=[6])
+        bar.setStyle(TableStyle([("BACKGROUND", (0, 0), (0, 0), colors.HexColor("#374151")),
+                                 ("BACKGROUND", (1, 0), (1, 0), HEAD_FILL),
+                                 ("LEFTPADDING", (0, 0), (-1, -1), 0), ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+                                 ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)]))
+        rows.append([chip(name, SEVERITY_COLORS[name], s, 24 * mm), bar,
+                     Paragraph(f"<b>{n}</b>  <font color='#6b7280'>({100 * n / total:.0f}%)</font>", s["cell"])])
+    table = Table(rows, colWidths=[content * 0.2, bar_width + 6, content * 0.3 - 6], hAlign="LEFT")
+    table.setStyle(TableStyle([("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 4),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 4), ("LEFTPADDING", (0, 0), (-1, -1), 3)]))
+    return table
+
+
 def findings_overview(s, data, content):
-    items, total = data.all, len(data.all) or 1
-    rows = [cells(["Severity", "Count", "Share", "Open after review"], s["cell_head"])]
-    for name in SEVERITIES:
-        group = [i for i in items if i["f"].get("severity") == name]
-        if not group and name == "unknown":
-            continue
-        still_open = sum(1 for i in group if i["human"] not in ("false_positive", "fixed"))
-        rows.append(cells([sev_markup(name), len(group), f"{100 * len(group) / total:.0f}%", still_open], s["cell"]))
-    story = [PageBreak(), Paragraph("3. Findings Overview", s["h1"]), Paragraph("3.1 Findings by Severity", s["h2"]),
-             grid_table(rows, [content * 0.34, content * 0.22, content * 0.22, content * 0.22], align_right=(1, 2, 3)),
-             Paragraph("Table 4. Findings by severity.", s["caption"])]
-    rows = [cells(["Category", "Total", "Crit.", "High", "Med.", "Low", "Info"], s["cell_head"])]
+    items = data.all
+    story = [PageBreak(), section_heading(s, "3. Findings Overview", 2), Paragraph("3.1 Findings by Severity", s["h2"]),
+             severity_bars(s, items, content), Paragraph("Figure 2. Distribution of findings by severity.", s["caption"])]
+    rows = [cells(["Category", "Total", "Critical", "High", "Medium", "Low", "Info"], s["cell_head"])]
     for key, label in CATEGORIES.items():
         group = [i for i in items if category(i["f"]) == key]
         if group:
             c = counts(group, lambda i: i["f"].get("severity"), SEVERITIES)
-            rows.append(cells([escape(label), len(group), c["critical"], c["high"], c["medium"], c["low"],
-                               c["info"] + c["unknown"]], s["cell"]))
+            rows.append(cells([escape(label), f"<b>{len(group)}</b>",
+                               c["critical"], c["high"], c["medium"], c["low"], c["info"] + c["unknown"]], s["cell"]))
     if len(rows) == 1:
         rows.append(cells(["No findings", 0, 0, 0, 0, 0, 0], s["cell"]))
-    story += [Paragraph("3.2 Findings by Category", s["h2"]),
-              grid_table(rows, [content * 0.4] + [content * 0.1] * 6, align_right=range(1, 7)),
-              Paragraph("Table 5. Findings by category and severity.", s["caption"])]
+    table = grid_table(rows, [content * 0.37] + [content * 0.105] * 6, align_right=range(1, 7))
+    story += [Paragraph("3.2 Findings by Category", s["h2"]), table,
+              Paragraph("Table 3. Findings by category and severity.", s["caption"])]
     human = counts(items, lambda i: i["human"], list(HUMAN_LABELS))
     after = len(items) - human["false_positive"] - human["fixed"]
     rows = [cells(["Stage", "Findings", "Note"], s["cell_head"]),
-            cells(["Raw scanner output", len(items), "Every finding reported by the scanners."], s["cell"]),
-            cells(["Marked false positive", f"−{human['false_positive']}", "Removed: not a real issue."], s["cell"]),
-            cells(["Marked fixed", f"−{human['fixed']}", "Removed: already remediated."], s["cell"]),
+            cells(["Raw scanner output", f"<b>{len(items)}</b>", "Every finding reported by the scanners."], s["cell"]),
+            cells([human_text("false_positive"), f"−{human['false_positive']}", "Removed: not a real issue."], s["cell"]),
+            cells([human_text("fixed"), f"−{human['fixed']}", "Removed: already remediated."], s["cell"]),
             cells(["<b>Open after review</b>", f"<b>{after}</b>",
                    f"{human['confirmed']} confirmed, {human['accepted_risk']} accepted risk, "
                    f"{human[None]} not yet reviewed."], s["cell"])]
     story += [Paragraph("3.3 Scanner Results Compared with Human Review", s["h2"]),
               grid_table(rows, [content * 0.34, content * 0.16, content * 0.5], align_right=(1,)),
-              Paragraph("Table 6. Effect of human review on the scanner result.", s["caption"])]
+              Paragraph("Table 4. Effect of human review on the scanner result.", s["caption"])]
     both = [i for i in items if i["human"] and i["ai_verdict"] not in ("unassessed", "failed")]
     if both:
         agree = sum(1 for i in both if agreement(i["ai_verdict"], i["human"]) == "Human agrees with AI")
         override = sum(1 for i in both if agreement(i["ai_verdict"], i["human"]) == "Human overrides AI")
         story.append(Paragraph(f"Of {plural(len(both), 'finding')} assessed by both AI and a person, the reviewer "
-                               f"agreed with the AI on {agree} and overrode it on {override}.", s["body"]))
+                               f"agreed with the AI on <b>{agree}</b> and overrode it on <b>{override}</b>.", s["body"]))
     return story
+
+
+def finding_header(s, item, identifier, content):
+    """A severity-tinted band: ID, title, then severity and category chips."""
+    f = item["f"]
+    sev, cat = f.get("severity", "unknown"), category(f)
+    title = f'<font color="#6b7280">{identifier}</font>&nbsp;&nbsp;{markup(finding_title(f), 200, bold=True)}'
+    if item["human"] in ("false_positive", "fixed"):
+        title += f' <font size="9" color="{HUMAN_COLORS[item["human"]]}">({escape(HUMAN_LABELS[item["human"]])})</font>'
+    heading = Paragraph(title, ParagraphStyle("fh", parent=s["h3"], fontName=fonts()["sans_bold"]))
+    table = Table([[heading, chip(sev, SEVERITY_COLORS.get(sev, "#94a3b8"), s, 22 * mm),
+                    chip(CATEGORY_SHORT.get(cat, cat), "#9ca3af", s, 24 * mm)]],
+                  colWidths=[content - 50 * mm, 25 * mm, 25 * mm], hAlign="LEFT")
+    table.setStyle(TableStyle([("LINEBEFORE", (0, 0), (0, -1), 2, colors.HexColor(SEVERITY_COLORS.get(sev, "#9ca3af"))),
+                               ("LINEBELOW", (0, 0), (-1, -1), 0.5, RULE),
+                               ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 8),
+                               ("BOTTOMPADDING", (0, 0), (-1, -1), 8), ("LEFTPADDING", (0, 0), (0, 0), 10),
+                               ("LEFTPADDING", (1, 0), (-1, 0), 2), ("RIGHTPADDING", (-1, 0), (-1, 0), 8)]))
+    return table
 
 
 def attribute_table(s, item, content):
     f, ai, review = item["f"], item["ai"], item["review"]
-    cat = category(f)
-    mono = fonts()["mono"]
-    ai_text = "Not applicable" if cat != "sast" else AI_LABELS.get(item["ai_verdict"], item["ai_verdict"]) + (
-        f" ({round(ai['confidence'] * 100)}% confidence)" if ai and isinstance(ai.get("confidence"), (int, float)) else "")
-    human = human_markup(item["human"])
+    cat, mono = category(f), fonts()["mono"]
+    ai_color = AI_COLORS.get(item["ai_verdict"], "#94a3b8")
+    ai_label = "Not applicable" if cat != "sast" else AI_LABELS.get(item["ai_verdict"], item["ai_verdict"])
+    ai_text = f'<font color="{ai_color if cat == "sast" else "#94a3b8"}"><b>{escape(ai_label)}</b></font>'
+    if cat == "sast" and ai and isinstance(ai.get("confidence"), (int, float)):
+        ai_text += f" · {round(ai['confidence'] * 100)}% confidence"
+    human = human_text(item["human"])
     if item["human"] and review.get("reviewer"):
-        human += f" by {markup(review.get('reviewer'), 60)}"
+        human += f" · {markup(review.get('reviewer'), 60)}"
     if item["human"] and review.get("updated"):
-        human += f", {markup(str(review.get('updated'))[:10])}"
+        human += f" · {markup(str(review.get('updated'))[:10])}"
     if cat == "sca":
-        extra = [("Package", markup(f"{f.get('package_name') or '—'} {f.get('installed_version') or ''}", 160)),
-                 ("Fixed in", markup(f.get("fixed_version") or "No fix published", 120))]
+        extra = [("PACKAGE", markup(f"{f.get('package_name') or '—'} {f.get('installed_version') or ''}", 160, mono)),
+                 ("FIXED IN", markup(f.get("fixed_version") or "No fix published", 120, mono))]
     else:
         extra = [("CWE", markup(", ".join(str(c) for c in f.get("cwe") or []) or "—", 200)),
-                 ("Scanner", markup(f.get("scanner"), 60))]
+                 ("SCANNER", markup(f.get("scanner"), 60))]
     label = lambda t: Paragraph(t, s["label"])
     cell = lambda t: Paragraph(t, s["cell"])
-    rows = [[label("Severity"), cell(sev_markup(f.get("severity", "unknown"))), label("Category"),
-             cell(escape(CATEGORY_SHORT.get(cat, cat)))],
-            [label("Rule"), cell(markup(f.get("rule_id"), 200, mono)), "", ""],
-            [label("Location"), cell(markup(location(f), 300, mono)), "", ""],
+    rows = [[label("RULE"), cell(markup(f.get("rule_id"), 200, mono)), "", ""],
+            [label("LOCATION"), cell(markup(location(f), 300, mono)), "", ""],
             [label(extra[0][0]), cell(extra[0][1]), label(extra[1][0]), cell(extra[1][1])],
-            [label("AI verdict"), cell(escape(ai_text)), label("Human review"), cell(human)]]
-    table = Table(rows, colWidths=[content * 0.16, content * 0.34, content * 0.16, content * 0.34], hAlign="LEFT")
+            [label("AI VERDICT"), cell(ai_text), label("HUMAN REVIEW"), cell(human)]]
+    table = Table(rows, colWidths=[content * 0.15, content * 0.35, content * 0.15, content * 0.35], hAlign="LEFT")
     table.setStyle(TableStyle([
-        ("SPAN", (1, 1), (3, 1)), ("SPAN", (1, 2), (3, 2)), ("BACKGROUND", (0, 0), (0, -1), FILL),
-        ("BACKGROUND", (2, 0), (2, 0), FILL), ("BACKGROUND", (2, 3), (2, 4), FILL),
-        ("BOX", (0, 0), (-1, -1), 0.6, RULE), ("INNERGRID", (0, 0), (-1, -1), 0.4, RULE),
-        ("LINEABOVE", (0, 0), (-1, 0), 1.2, NAVY), ("VALIGN", (0, 0), (-1, -1), "TOP"),
-        ("TOPPADDING", (0, 0), (-1, -1), 4), ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ("LEFTPADDING", (0, 0), (-1, -1), 6), ("RIGHTPADDING", (0, 0), (-1, -1), 6)]))
+        ("SPAN", (1, 0), (3, 0)), ("SPAN", (1, 1), (3, 1)),
+        ("BOX", (0, 0), (-1, -1), 0.6, GRID), ("INNERGRID", (0, 0), (-1, -1), 0.5, GRID),
+        ("BACKGROUND", (0, 0), (0, -1), HEAD_FILL), ("BACKGROUND", (2, 2), (2, 3), HEAD_FILL),
+        ("VALIGN", (0, 0), (-1, -1), "MIDDLE"), ("TOPPADDING", (0, 0), (-1, -1), 5),
+        ("BOTTOMPADDING", (0, 0), (-1, -1), 5), ("LEFTPADDING", (0, 0), (-1, -1), 8), ("RIGHTPADDING", (0, 0), (-1, -1), 6)]))
     return table
 
 
 def code_block(snippet, s, width):
-    """Source evidence in Ubuntu Mono. Whitespace is normalised so no character prints as a box."""
+    """Source evidence in the platform coding font. Whitespace is normalised so nothing prints as a box."""
     f = fonts()
     lines = plain(snippet, 8000).split("\n")[:45]
-    chars = max(int((width - 18) / pdfmetrics.stringWidth("M", f["mono"], 8.6)), 20)
+    chars = max(int((width - 20) / pdfmetrics.stringWidth("M", f["mono"], 8.3)), 20)
     wrapped = []
     for line in lines:
         while len(line) > chars:
@@ -674,21 +773,17 @@ def code_block(snippet, s, width):
         wrapped.append(line)
     code = markup("\n".join(wrapped), 12000, f["mono"]).replace("<br/>", "\n")
     table = Table([[XPreformatted(code, s["code"])]], colWidths=[width], hAlign="LEFT")
-    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), FILL), ("LINEBEFORE", (0, 0), (0, -1), 2, NAVY),
-                               ("BOX", (0, 0), (-1, -1), 0.4, RULE), ("LEFTPADDING", (0, 0), (-1, -1), 9),
-                               ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6)]))
+    table.setStyle(TableStyle([("BACKGROUND", (0, 0), (-1, -1), colors.HexColor("#f7f7f8")),
+                               ("BOX", (0, 0), (-1, -1), 0.5, RULE), ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                               ("TOPPADDING", (0, 0), (-1, -1), 7), ("BOTTOMPADDING", (0, 0), (-1, -1), 7)]))
     return table
 
 
 def finding_section(s, item, identifier, options, content):
     f, ai, review = item["f"], item["ai"], item["review"]
     cat = category(f)
-    title = f"{identifier}&nbsp;&nbsp;{markup(finding_title(f), 200, bold=True)}"
-    if item["human"] in ("false_positive", "fixed"):
-        title += (f' <font size="9.5" color="{HUMAN_COLORS[item["human"]]}">'
-                  f'[{escape(HUMAN_LABELS[item["human"]])}]</font>')
-    story = [KeepTogether([Paragraph(title, s["h3"]), attribute_table(s, item, content)])]
-    story.append(Paragraph("Description", s["h4"]))
+    story = [KeepTogether([finding_header(s, item, identifier, content), attribute_table(s, item, content)])]
+    story.append(Paragraph("DESCRIPTION", s["h4"]))
     story.append(Paragraph("Gitleaks flagged a possible credential at this location. The matched value is not stored "
                            "in the report." if cat == "secret" else markup(f.get("message"), 2000), s["body"]))
     if ai:
@@ -697,21 +792,21 @@ def finding_section(s, item, identifier, options, content):
             text += f"<br/><i>Impact:</i> {markup(ai.get('impact'), 800)}"
         note = agreement(item["ai_verdict"], item["human"])
         if note:
-            text += f'<br/><font color="{"#8b1a1a" if "overrides" in note else "#2f6b3f"}"><i>{escape(note)}.</i></font>'
-        story += [Paragraph("AI Assessment", s["h4"]), Paragraph(text, s["body"])]
+            text += f'<br/><font color="{"#be123c" if "overrides" in note else "#059669"}"><i>{escape(note)}.</i></font>'
+        story += [Paragraph("AI ASSESSMENT", s["h4"]), Paragraph(text, s["body"])]
     comments = [c for c in review.get("comments") or [] if isinstance(c, dict)]
     if item["human"] or (options.get("include_comments", True) and comments):
-        story.append(Paragraph("Human Review", s["h4"]))
-        story.append(Paragraph(f"Verdict: {human_markup(item['human'])}" +
+        story.append(Paragraph("HUMAN REVIEW", s["h4"]))
+        story.append(Paragraph(f"Verdict: {human_text(item['human'])}" +
                                (f" by {markup(review.get('reviewer'), 60)}" if review.get("reviewer") else ""), s["left"]))
         if options.get("include_comments", True) and comments:
             rows = [cells(["Date", "Reviewer", "Note"], s["cell_head"])]
             for comment in comments[-15:]:
-                body = markup(comment.get("body"), 1000)
+                body = markup(comment.get("body"), 1000, fonts()["sans"])
                 rows.append(cells([markup(str(comment.get("created", ""))[:16].replace("T", " ")),
-                                   markup(comment.get("author") or "—", 60),
+                                   f"<b>{markup(comment.get('author') or '—', 60)}</b>",
                                    f"<i>{body}</i>" if comment.get("kind") == "event" else body], s["cell"]))
-            story += [Spacer(1, 4), grid_table(rows, [content * 0.2, content * 0.18, content * 0.62])]
+            story += [Spacer(1, 5), grid_table(rows, [content * 0.2, content * 0.17, content * 0.63])]
     if cat == "sca":
         fix = (f"Upgrade <b>{markup(f.get('package_name'), 120)}</b> from {markup(f.get('installed_version'), 60)} to "
                f"<b>{markup(f.get('fixed_version'), 120)}</b> or later, then rebuild the lockfile." if f.get("fixed_version")
@@ -721,10 +816,10 @@ def finding_section(s, item, identifier, options, content):
     else:
         fix = markup(ai.get("remediation"), 2000) if ai and ai.get("remediation") else \
             "Follow the scanner guidance above and confirm the fix with a new scan."
-    story += [Paragraph("Recommendation", s["h4"]), Paragraph(fix, s["body"])]
+    story += [Paragraph("RECOMMENDATION", s["h4"]), Paragraph(fix, s["body"])]
     if options.get("include_code", True) and cat == "sast" and isinstance(f.get("source_snippet"), str) and f["source_snippet"]:
-        story += [Paragraph("Evidence", s["h4"]), code_block(f["source_snippet"], s, content)]
-    story.append(HRFlowable(width="100%", thickness=0.4, color=RULE, spaceBefore=10, spaceAfter=10))
+        story += [Paragraph("EVIDENCE", s["h4"]), code_block(f["source_snippet"], s, content)]
+    story.append(Spacer(1, 20))
     return story
 
 
@@ -735,13 +830,16 @@ def detailed_findings(s, data, groups, numbering, options, content):
     if data.hidden:
         intro += (f" {plural(len(data.hidden), 'finding')} marked as false positive by a reviewer "
                   f"{'is' if len(data.hidden) == 1 else 'are'} excluded from this report.")
-    story = [PageBreak(), Paragraph("4. Detailed Findings", s["h1"]), Paragraph(escape(intro), s["body"])]
+    story = [PageBreak(), section_heading(s, "4. Detailed Findings", 3), Paragraph(escape(intro), s["body"])]
     if not groups:
         story.append(Paragraph("The scan reported no findings.", s["body"]))
     for index, (label, _, items) in enumerate(groups, start=1):
-        story += [CondPageBreak(70 * mm), Paragraph(f"4.{index} {markup(label, 120)} ({len(items)})", s["h2"])]
+        heading = Paragraph(f"4.{index} {markup(label, 120, fonts()['sans_bold'])} "
+                            f'<font color="#6b7280" size="10">({plural(len(items), "finding")})</font>',
+                            s["h2"])
+        story += [CondPageBreak(80 * mm), heading]
         for item in items:
-            story.append(CondPageBreak(60 * mm))
+            story.append(CondPageBreak(65 * mm))
             story += finding_section(s, item, numbering[id(item)], options, content)
     return story
 
@@ -752,10 +850,12 @@ def appendix(s, groups, numbering, content):
     for _, _, items in groups:
         for item in items:
             f = item["f"]
-            rows.append(cells([numbering[id(item)], markup(finding_title(f), 120), sev_markup(f.get("severity", "unknown")),
-                               markup(location(f), 160, mono), human_markup(item["human"])], s["cell"]))
+            sev = f.get("severity", "unknown")
+            rows.append([Paragraph(f"<b>{numbering[id(item)]}</b>", s["cell"]), Paragraph(markup(finding_title(f), 120), s["cell"]),
+                         chip(sev, SEVERITY_COLORS.get(sev, "#94a3b8"), s, 20 * mm),
+                         Paragraph(markup(location(f), 160, mono), s["cell"]), Paragraph(human_text(item["human"]), s["cell"])])
     if len(rows) == 1:
         rows.append(cells(["—", "No findings", "", "", ""], s["cell"]))
-    return [PageBreak(), Paragraph("Appendix A. Finding Index", s["h1"]),
+    return [PageBreak(), section_heading(s, "Appendix A. Finding Index", 4),
             Paragraph("All findings in this report with their identifiers and human review status.", s["body"]),
-            grid_table(rows, [content * 0.1, content * 0.32, content * 0.13, content * 0.27, content * 0.18])]
+            grid_table(rows, [content * 0.1, content * 0.32, content * 0.14, content * 0.26, content * 0.18])]

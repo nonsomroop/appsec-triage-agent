@@ -21,7 +21,7 @@ appsec-triage = "appsec_triage.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-appsec_triage = ["web_ui.html", "assets/highlight.min.js", "assets/fonts/*.ttf", "assets/fonts/UFL.txt"]
+appsec_triage = ["web_ui.html", "assets/highlight.min.js"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

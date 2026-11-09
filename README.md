@@ -265,9 +265,12 @@ The report is an A4 portrait document with a title page and document control
 table, contents, numbered sections (executive summary with an overall risk
 rating, scope and methodology, findings overview, detailed findings with IDs
 such as F-001) and a finding index, with running headers and "Page X of Y".
-Text is set in Times New Roman where installed (macOS, Windows); Docker uses
-Liberation Serif, which has the same metrics. Code uses Ubuntu Mono, bundled
-under the Ubuntu Font Licence (`src/appsec_triage/assets/fonts/UFL.txt`).
+Fonts come from the operating system, so nothing is bundled: running text is
+Times New Roman, headings and tables are Arial, and code uses the platform's
+coding font (Consolas on Windows, Menlo on macOS, DejaVu Sans Mono on Linux and
+in Docker). Docker uses Liberation Serif and Liberation Sans, which have the same
+metrics as Times New Roman and Arial. Any missing font falls back to the PDF
+viewer's built-in Times, Helvetica or Courier.
 Characters a font lacks, such as Thai, fall back to another installed font, and
 tabs and invisible characters in code are normalised so nothing prints as a box.
 
