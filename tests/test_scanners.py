@@ -8,6 +8,45 @@ from appsec_triage.scanners import semgrep
 from appsec_triage.scanners.semgrep import ScannerError, SemgrepScanner, parse_semgrep, run_semgrep
 
 
+@pytest.mark.parametrize("paths,expected", [
+    ({}, None),
+    ({"scanned": []}, []),
+    ({"scanned": ["clean.py", "app.py", "clean.py"]}, ["app.py", "clean.py"]),
+])
+def test_coverage_counts_scanned_files_without_findings(monkeypatch, tmp_path, paths, expected):
+    from appsec_triage.models.scan import Scan
+    from appsec_triage.scanners.combined import CombinedScanner
+
+    payload = {"results": [], "errors": [], "paths": paths}
+    monkeypatch.setattr(semgrep, "run_semgrep", lambda *args: (0, json.dumps(payload)))
+    scan = CombinedScanner([SemgrepScanner(["auto"])]).scan(tmp_path)
+    restored = Scan.model_validate_json(scan.model_dump_json())
+    assert restored.status == "completed"
+    assert restored.coverage["semgrep"].files == expected
+    assert not restored.findings
+    if expected == []:
+        assert any("zero scanned files" in warning for warning in restored.warnings)
+
+
+def test_coverage_preserves_unscanned_files_and_rule_evidence(monkeypatch, tmp_path):
+    for name in ("clean.py", "ignored.py", "unknown.dart"):
+        (tmp_path / name).write_text("fixture")
+    (tmp_path / ".git").mkdir()
+    (tmp_path / ".git" / "config").write_text("metadata")
+    payload = {"results": [], "errors": [],
+               "paths": {"scanned": ["clean.py"], "skipped": [
+                   {"path": "ignored.py", "reason": "semgrepignore_patterns_match"}]},
+               "time": {"rules": ["test-rule"]}}
+    monkeypatch.setattr(semgrep, "run_semgrep", lambda *args: (0, json.dumps(payload)))
+    scan = SemgrepScanner(["auto"]).scan(tmp_path)
+    coverage = scan.coverage["semgrep"]
+    assert coverage.inventory_complete
+    assert coverage.inventory_files == ["clean.py", "ignored.py", "unknown.dart"]
+    assert coverage.files == ["clean.py"]
+    assert coverage.skipped == {"ignored.py": "semgrepignore_patterns_match"}
+    assert coverage.rules == ["test-rule"]
+
+
 def test_normalisation(tmp_path, semgrep_payload):
     findings, errors, _ = parse_semgrep(semgrep_payload, tmp_path)
     assert errors == []

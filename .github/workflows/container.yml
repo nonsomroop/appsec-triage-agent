@@ -25,6 +25,26 @@ jobs:
           jq -e '.scan.status == "completed"
             and any(.scan.findings[]; .scanner == "semgrep")
             and any(.scan.findings[]; .scanner == "trivy" and .package_name == "requests")' report.json
+      - name: Scan current files and Git history for secrets
+        run: |
+          export APPSEC_SCAN_DIR="$(mktemp -d)"
+          chmod 755 "$APPSEC_SCAN_DIR"
+          git -C "$APPSEC_SCAN_DIR" init -q
+          # Generate a fake token with the right shape for the Gitleaks GitHub rule.
+          token="ghp_$(printf '%s' appsec-ci-fixture | sha256sum | cut -c1-36)"
+          printf 'TOKEN=%s\n' "$token" > "$APPSEC_SCAN_DIR/fixture.txt"
+          git -C "$APPSEC_SCAN_DIR" add fixture.txt
+          git -C "$APPSEC_SCAN_DIR" -c user.name=CI -c user.email=ci@example.invalid commit -qm "Add test fixture"
+          docker compose run --rm dashboard scan /workspace --scanner gitleaks-files > secrets-files.json
+          git -C "$APPSEC_SCAN_DIR" rm -q fixture.txt
+          git -C "$APPSEC_SCAN_DIR" -c user.name=CI -c user.email=ci@example.invalid commit -qm "Remove test fixture"
+          docker compose run --rm dashboard scan /workspace --scanner gitleaks-history > secrets-history.json
+          jq -e '.scan.status == "completed" and any(.scan.findings[]; .category == "secret" and .file_path == "fixture.txt" and .start_line == 1)' secrets-files.json
+          jq -e '.scan.status == "completed" and any(.scan.findings[]; .category == "secret" and .file_path == "fixture.txt" and (.metadata.commit | length) == 40)' secrets-history.json
+          if grep -Fq "$token" secrets-files.json secrets-history.json; then
+            echo "A secret scan report contained the unredacted fixture"
+            exit 1
+          fi
       - name: Show container state and logs on failure
         if: failure()
         run: |

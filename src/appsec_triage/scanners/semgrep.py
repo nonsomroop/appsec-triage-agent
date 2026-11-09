@@ -13,9 +13,10 @@ from pathlib import Path
 from pydantic import ValidationError
 
 from appsec_triage.models.finding import Finding
-from appsec_triage.models.scan import Scan
+from appsec_triage.models.scan import Coverage, Scan
 from appsec_triage.utils.source_reader import SECRET_DIRECTORIES, SECRET_PATTERNS, SourceReader, SourceReadError
 from .base import validate_target
+from .coverage import inventory
 
 
 class ScannerError(RuntimeError):
@@ -23,7 +24,8 @@ class ScannerError(RuntimeError):
 
 
 def run_semgrep(command: list[str], root: Path, timeout: int,
-                max_output_bytes: int) -> tuple[int, str]:
+                max_output_bytes: int, *, git_env: dict[str, str] | None = None,
+                stderr_lines: list[str] | None = None) -> tuple[int, str]:
     if command[0] == "semgrep":
         executable = shutil.which("semgrep")
         if executable is None:
@@ -33,6 +35,9 @@ def run_semgrep(command: list[str], root: Path, timeout: int,
     env = {key: value for key, value in os.environ.items()
            if not any(word in key.upper() for word in ("TOKEN", "SECRET", "PASSWORD", "API_KEY"))}
     env["SEMGREP_SEND_METRICS"] = "auto" if "--metrics=auto" in command else "off"
+    if git_env is not None:
+        env = {key: value for key, value in env.items() if not key.upper().startswith("GIT_")}
+        env.update(git_env)
     with tempfile.TemporaryFile() as stdout, tempfile.TemporaryFile() as stderr:
         try:
             process = subprocess.Popen(command, cwd=root, env=env, stdin=subprocess.DEVNULL,
@@ -53,6 +58,9 @@ def run_semgrep(command: list[str], root: Path, timeout: int,
             if any(os.fstat(s.fileno()).st_size > max_output_bytes for s in (stdout, stderr)):
                 raise ScannerError("Semgrep output exceeded configured limit")
             stdout.seek(0)
+            if stderr_lines is not None:
+                stderr.seek(0)
+                stderr_lines.extend(stderr.read(max_output_bytes).decode("utf-8", errors="replace").splitlines())
             return process.returncode, stdout.read(max_output_bytes).decode("utf-8", errors="replace")
         finally:
             if process.poll() is None:
@@ -176,13 +184,18 @@ class SemgrepScanner:
 
     def scan(self, target: str | Path) -> Scan:
         scan = Scan(target=str(target), scanner="semgrep")
+        scan.coverage["semgrep"] = Coverage(
+            scope="Source files supported by the selected rules. Git ignores, scanner exclusions, "
+                  "secret-file exclusions and the 1 MB file limit can reduce coverage. "
+                  "Reported files can still have parsing or rule timeout warnings.")
         try:
             root = validate_target(target)
             scan.target = str(root)
+            inventory(root, scan.coverage["semgrep"])
             # Resolve before changing cwd so a target-local executable cannot be selected.
             executable = shutil.which("semgrep") or "semgrep"
             metrics = "auto" if "auto" in self.configs else "off"
-            command = [executable, "scan", "--json", "--oss-only", f"--metrics={metrics}",
+            command = [executable, "scan", "--json", "--verbose", "--time", "--oss-only", f"--metrics={metrics}",
                        "--disable-version-check", "--jobs=1", "--max-memory=512",
                        "--max-target-bytes=1000000", "--timeout=10"]
             for config in self.configs:
@@ -194,6 +207,19 @@ class SemgrepScanner:
             try:
                 payload = json.loads(output)
                 scan.findings, scan.errors, scan.warnings = parse_semgrep(payload, root)
+                paths = payload.get("paths", {})
+                scanned = paths.get("scanned") if isinstance(paths, dict) else None
+                if isinstance(scanned, list) and all(isinstance(path, str) for path in scanned):
+                    scan.coverage["semgrep"].files = sorted(set(scanned))
+                    if not scanned:
+                        scan.warnings.append("Semgrep reported zero scanned files. Check the target, rules and exclusions.")
+                for skipped in paths.get("skipped", []) if isinstance(paths, dict) else []:
+                    if isinstance(skipped, dict) and isinstance(skipped.get("path"), str):
+                        scan.coverage["semgrep"].skipped[skipped["path"]] = str(skipped.get("reason", "Unspecified"))
+                timing = payload.get("time", {})
+                rules = timing.get("rules") if isinstance(timing, dict) else None
+                if isinstance(rules, list) and all(isinstance(rule, str) for rule in rules):
+                    scan.coverage["semgrep"].rules = sorted(set(rules))
                 version = payload.get("version")
                 scan.scanner_version = version if isinstance(version, str) else None
             except (json.JSONDecodeError, ScannerError):

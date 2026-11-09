@@ -101,6 +101,70 @@ def test_remote_scan_request(monkeypatch):
         assert request(server, "POST", "/api/scan", json.dumps(data), headers)[0] == 400
 
 
+@pytest.mark.parametrize("container", [False, True])
+def test_repository_access_request(monkeypatch, container):
+    monkeypatch.setenv("APPSEC_CONTAINER", str(int(container)))
+    calls = []
+
+    def check(target, branch, workspace, *, allow_sign_in, token):
+        assert workspace.is_dir()
+        calls.append((target, branch, allow_sign_in, token))
+
+    monkeypatch.setattr("appsec_triage.web.check_repository_access", check)
+    with running_server() as server:
+        url = "https://gitlab.com/group/repo.git"
+        path = "/api/repository/access"
+        body = json.dumps({"target": url, "branch": "main", "repository_token": "dummy-access-token"})
+        headers = {"X-Appsec-Token": server.token}
+        assert request(server, "POST", path, body)[0] == 403
+        assert request(server, "POST", path, body, {**headers, "Origin": "http://evil.example"})[0] == 403
+        with server.repository_access_lock:
+            assert request(server, "POST", path, body, headers)[0] == 409
+        assert request(server, "POST", path, body, headers)[0] == 200
+        assert calls == [(url, "main", not container, "dummy-access-token")]
+
+
+def test_docker_scan_uses_token_only_for_clone_and_requests_it_on_rerun(monkeypatch):
+    monkeypatch.setenv("APPSEC_CONTAINER", "1")
+    token = "dummy-repo-access-token"
+    clones = []
+
+    def clone(url, branch, directory, **options):
+        clones.append((url, branch, options))
+        return directory
+
+    def scan(args, **options):
+        assert token not in " ".join(args) and token not in options["env"].values()
+        Path(args[-1]).write_text('{"scan":{"status":"completed","findings":[]}}', encoding="utf-8")
+        return SimpleNamespace(returncode=0)
+
+    monkeypatch.setattr("appsec_triage.web.clone_repository", clone)
+    monkeypatch.setattr("appsec_triage.web.git_revision", lambda target: None)
+    monkeypatch.setattr("appsec_triage.web.run_scan_process", scan)
+    with running_server() as server:
+        headers = {"X-Appsec-Token": server.token}
+        url = "https://github.com/owner/repo.git"
+        data = {"source": "remote", "target": url, "branch": "main", "repository_token": token}
+        assert request(server, "POST", "/api/projects", json.dumps(data), headers)[0] == 400
+        status, body = request(server, "POST", "/api/scan", json.dumps(data), headers)
+        assert status == 202 and token not in body
+        first = json.loads(body)
+        deadline = time.monotonic() + 3
+        while server.job["status"] == "running" and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert server.job["status"] == "completed" and token not in json.dumps(server.job)
+        assert clones == [(url, "main", {"token": token})]
+        assert token.encode() not in server.history.path.read_bytes()
+        rerun_path = f"/api/runs/{first['run_id']}/rerun"
+        assert request(server, "POST", rerun_path, "{}", headers)[0] == 428
+        status, body = request(server, "POST", rerun_path, json.dumps({"repository_token": token}), headers)
+        assert status == 202 and token not in body
+        deadline = time.monotonic() + 3
+        while server.job["status"] == "running" and time.monotonic() < deadline:
+            time.sleep(0.01)
+        assert server.job["status"] == "completed" and clones == [(url, "main", {"token": token})] * 2
+
+
 def test_folder_picker_endpoint(monkeypatch):
     calls = []
     def picker():
@@ -202,6 +266,9 @@ def test_security_headers_and_script_nonce():
         csp = response.getheader("Content-Security-Policy")
         nonce = re.search(r"'nonce-([^']+)'", csp)[1]
         assert f'<script nonce="{nonce}">' in page and "'unsafe-inline'" not in csp.split("style-src")[0]
+        assert f'<script nonce="{nonce}" src="/assets/highlight.min.js">' in page
+        status, script = request(server, "GET", "/assets/highlight.min.js")
+        assert status == 200 and "Highlight.js" in script
         assert response.getheader("X-Frame-Options") == "DENY"
         assert response.getheader("Referrer-Policy") == "no-referrer"
         assert "Python" not in (response.getheader("Server") or "")

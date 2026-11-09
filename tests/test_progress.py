@@ -142,5 +142,5 @@ def test_warnings_show_as_amber_step_and_merge_in_combined_scan(tmp_path):
     assert combined.status == "completed" and combined.errors == []
     assert combined.warnings == ["semgrep: a.tsx was only partly parsed", "semgrep: b.json could not be parsed"]
     done = [e for e in events(path) if e["status"] != "start"]
-    assert (done[0]["status"], done[0]["detail"]) == ("warning", "2 files not fully analysed")
+    assert (done[0]["status"], done[0]["detail"]) == ("warning", "2 coverage warnings")
     assert done[1]["status"] == "done"

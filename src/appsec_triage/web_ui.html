@@ -1,5 +1,17 @@
 <!doctype html>
 <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AppSec Triage</title>
+<script>
+const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+let savedTheme;
+try { savedTheme = localStorage.getItem('appsec.theme'); } catch {}
+if (savedTheme !== 'light' && savedTheme !== 'dark') savedTheme = null;
+
+function applyTheme() {
+  document.documentElement.dataset.theme = savedTheme || (systemTheme.matches ? 'dark' : 'light');
+}
+applyTheme();
+systemTheme.addEventListener('change', applyTheme);
+</script>
 <style>
 :root{
   --bg:#f5f6fb;--surface:#ffffff;--surface-2:#f8f9fd;--surface-3:#eff1f8;--border:#e3e6f0;--border-strong:#d1d6e4;
@@ -17,7 +29,7 @@
   --mono:"JetBrains Mono",ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;color-scheme:light;
   --side-w:276px;
 }
-@media (prefers-color-scheme:dark){:root{
+:root[data-theme="dark"]{
   --bg:#090b16;--surface:#11142a;--surface-2:#151935;--surface-3:#1b2042;--border:#232849;--border-strong:#333a63;
   --text:#e9ebf8;--muted:#9ba1c2;--faint:#686f95;
   --accent:#8b7dff;--accent-hover:#a397ff;--accent-soft:#221e4d;--accent-text:#b4aaff;
@@ -27,7 +39,7 @@
   --low:#38bdf8;--low-bg:#0c2a3d;--info:#a3b0c2;--info-bg:#1e2440;
   --ok:#34d399;--ok-bg:#0d2f26;--warn:#fbbf24;--warn-bg:#33270c;--err:#fb7185;--err-bg:#3a1520;
   --shadow:0 1px 2px rgba(0,0,0,.3),0 8px 24px -10px rgba(0,0,0,.5);--shadow-lg:0 24px 56px -12px rgba(0,0,0,.7);color-scheme:dark;
-}}
+}
 *{box-sizing:border-box}
 html,body{height:100%}
 body{margin:0;background:var(--bg);color:var(--text);font:14px/1.55 Inter,"SF Pro Text",system-ui,-apple-system,"Segoe UI",sans-serif;-webkit-font-smoothing:antialiased;font-feature-settings:"cv11","ss01"}
@@ -87,6 +99,8 @@ input:disabled,select:disabled{background:var(--surface-2);color:var(--muted)}
 .icon-btn:hover{background:var(--side-hover);color:var(--side-text)}
 .icon-btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .icon-btn svg{width:18px;height:18px;transition:transform .28s}
+#theme-toggle .sun,[data-theme="dark"] #theme-toggle .moon{display:none}
+[data-theme="dark"] #theme-toggle .sun{display:block}
 .app.collapsed .collapse-btn svg{transform:rotate(180deg)}
 .nav{display:flex;flex-direction:column;gap:3px}
 .nav button{all:unset;box-sizing:border-box;cursor:pointer;display:flex;align-items:center;gap:12px;padding:9px 11px;border-radius:11px;color:var(--side-muted);font-weight:550;position:relative;white-space:nowrap;transition:background .15s,color .15s}
@@ -141,7 +155,7 @@ input:disabled,select:disabled{background:var(--surface-2);color:var(--muted)}
 /* Collapsed rail */
 .app.collapsed .sidebar{padding:18px 10px;align-items:stretch}
 .app.collapsed .brand-text,.app.collapsed .nav-label,.app.collapsed .side-head,.app.collapsed .project-name,.app.collapsed .project-target,
-.app.collapsed #history-wrap,.app.collapsed .side-foot span:last-child,.app.collapsed .nav .count{display:none}
+.app.collapsed #history-wrap,.app.collapsed .side-foot span:last-child,.app.collapsed .nav .count,.app.collapsed .side-empty{display:none}
 .app.collapsed .side-top{flex-direction:column;gap:10px;align-items:center}
 .app.collapsed .nav button{width:44px;height:44px;margin:0 auto;justify-content:center;padding:0}
 .app.collapsed .nav button[aria-current=page]::before{left:-10px}
@@ -391,6 +405,13 @@ details.advanced>div{margin-top:12px}
 .evidence{margin:0;padding-left:18px}
 .evidence li{margin-bottom:4px;font-family:var(--mono);font-size:12px}
 .code{font-family:var(--mono)!important;font-size:12.5px!important;white-space:pre!important;overflow:auto;max-height:340px;padding:12px 14px;margin:0;background:var(--surface-2);line-height:1.6}
+.code code{font:inherit}
+.code :is(.hljs-keyword,.hljs-selector-tag){color:var(--accent-text);font-weight:600}
+.code :is(.hljs-string,.hljs-regexp,.hljs-addition){color:var(--ok)}
+.code :is(.hljs-number,.hljs-literal,.hljs-symbol){color:var(--warn)}
+.code :is(.hljs-title,.hljs-type,.hljs-built_in,.hljs-tag){color:var(--low)}
+.code :is(.hljs-attr,.hljs-attribute,.hljs-meta,.hljs-deletion){color:var(--crit)}
+.code :is(.hljs-comment,.hljs-quote){color:var(--muted);font-style:italic}
 .upgrade{display:flex;align-items:center;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:13px}
 .upgrade .from{color:var(--high);text-decoration:line-through}
 .upgrade .to{color:var(--ok);font-weight:700}
@@ -434,7 +455,7 @@ a.link{color:var(--accent-text)}
   .app,.app.collapsed{grid-template-columns:minmax(0,1fr);--side-w:284px}
   .sidebar{position:fixed;inset:0 auto 0 0;width:min(var(--side-w),86vw);transform:translateX(-102%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-lg)}
   .app.drawer-open .sidebar{transform:none}
-  .app.collapsed .brand-text,.app.collapsed .nav-label,.app.collapsed .side-head,.app.collapsed .project-name,.app.collapsed .project-target,.app.collapsed .side-foot span:last-child{display:revert}
+  .app.collapsed .brand-text,.app.collapsed .nav-label,.app.collapsed .side-head,.app.collapsed .project-name,.app.collapsed .project-target,.app.collapsed .side-foot span:last-child,.app.collapsed .side-empty{display:revert}
   .app.collapsed #history-wrap:not(.hidden){display:flex}
   .app.collapsed .side-top{flex-direction:row}.app.collapsed .nav button{justify-content:flex-start;padding:9px 11px}
   .app.collapsed .project{grid-template-columns:30px minmax(0,1fr);justify-content:stretch}
@@ -514,6 +535,10 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   <button type="button" class="icon-btn menu-btn" id="menu-btn" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="crumbs"><span class="crumb-root">Workspace</span><span class="sep" aria-hidden="true">/</span><b id="crumb">Scan</b></div>
   <div class="topbar-right">
+    <button type="button" class="icon-btn" id="theme-toggle" aria-label="Dark mode" aria-pressed="false" title="Toggle dark mode">
+      <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20.9 13.3A9 9 0 0 1 10.7 3.1a9 9 0 1 0 10.2 10.2Z"/></svg>
+      <svg class="sun" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2m0 16v2M2 12h2m16 0h2M5 5l1.4 1.4m11.2 11.2L19 19M5 19l1.4-1.4M17.6 6.4 19 5"/></svg>
+    </button>
     <span class="status" id="job-status" role="status"><span class="dot"></span><span class="status-text" id="job-status-text">Ready</span></span>
     <label class="btn" title="Open a saved JSON report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15V3m0 0l-4 4m4-4l4 4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">Open report</span><input class="hidden" type="file" id="upload" accept=".json,application/json"></label>
     <button class="btn" id="export" disabled title="Download the full report as JSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">Export</span></button>
@@ -532,17 +557,26 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
         <div class="step-head"><h2>Which code should we scan?</h2><p class="help">Local folders are scanned in place. Remote repositories are cloned to a temporary folder and deleted afterwards.</p></div>
         <div class="seg" role="radiogroup" aria-label="Repository source">
           <label><input type="radio" name="source" value="local" checked><span>Local folder</span></label>
-          <label><input type="radio" name="source" value="remote"><span>GitHub / GitLab URL</span></label>
+          <label><input type="radio" name="source" value="remote"><span>Git repository URL</span></label>
         </div>
         <div class="inline">
           <label class="field"><span id="target-label">Repository folder</span><input id="target" autocomplete="off" spellcheck="false" placeholder="Choose a folder or enter its full path"></label>
           <button type="button" class="btn" id="browse">Browse…</button>
+          <button type="button" class="btn hidden" id="repository-access" aria-describedby="target-help">Check repository access</button>
         </div>
         <p class="help" id="target-help"></p>
+        <p class="help hidden" id="repository-access-status" role="status"></p>
         <div class="grid-2">
           <label class="field"><span>Project name <span class="faint">(optional)</span></span><input id="project-name" maxlength="120" placeholder="Defaults to the folder name"></label>
           <label class="field hidden" id="branch-label"><span>Branch <span class="faint">(optional)</span></span><input id="branch" maxlength="200" placeholder="Default branch"></label>
         </div>
+        <details class="advanced hidden" id="repository-auth">
+          <summary>Private repository access</summary>
+          <div>
+            <label class="field"><span>Repository access token</span><input id="repository-token" type="password" maxlength="2048" autocomplete="off" spellcheck="false" aria-describedby="repository-token-help"></label>
+            <p class="help" id="repository-token-help"><span id="repository-token-scope"></span> The dashboard clears the token when the scan starts. <a id="repository-token-link" target="_blank" rel="noopener noreferrer">Create a token</a></p>
+          </div>
+        </details>
       </div>
     </section>
 
@@ -553,7 +587,9 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
         <div class="choices" role="radiogroup" aria-label="Scanner">
           <label class="choice"><input type="radio" name="scanner" value="semgrep" checked><div class="choice-card"><div class="choice-title">Code issues<span class="check"></span></div><div class="choice-desc">SAST with Semgrep: injection, unsafe APIs and insecure patterns in your source.</div></div></label>
           <label class="choice"><input type="radio" name="scanner" value="trivy"><div class="choice-card"><div class="choice-title">Vulnerable dependencies<span class="check"></span></div><div class="choice-desc">SCA with Trivy: known CVEs in libraries from lockfiles and manifests.</div></div></label>
-          <label class="choice"><input type="radio" name="scanner" value="all"><div class="choice-card"><div class="choice-title">Both<span class="check"></span></div><div class="choice-desc">Full picture: code issues and vulnerable dependencies in one report.</div></div></label>
+          <label class="choice"><input type="radio" name="scanner" value="gitleaks-files"><div class="choice-card"><div class="choice-title">Secrets in current files<span class="check"></span></div><div class="choice-desc">Gitleaks checks the folder for exposed credentials, including uncommitted files.</div></div></label>
+          <label class="choice"><input type="radio" name="scanner" value="gitleaks-history"><div class="choice-card"><div class="choice-title">Secrets in Git history<span class="check"></span></div><div class="choice-desc">Gitleaks checks available commits, including credentials removed from current files.</div></div></label>
+          <label class="choice"><input type="radio" name="scanner" value="all"><div class="choice-card"><div class="choice-title">Code + dependencies<span class="check"></span></div><div class="choice-desc">Run Semgrep and Trivy to check code issues and vulnerable dependencies in one report.</div></div></label>
         </div>
       </div>
     </section>
@@ -595,7 +631,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
       <div><h2 id="progress-title">Starting scan…</h2><p class="muted" id="progress-sub">This can take a few minutes for large repositories.</p></div>
       <span class="clock" id="elapsed" title="Elapsed time">0:00</span>
     </div>
-    <div class="overall" role="progressbar" aria-label="Overall progress" aria-valuemin="0" aria-valuemax="100" id="overall"><div class="overall-fill" id="overall-fill" style="width:0"></div></div>
+    <div class="overall" role="progressbar" aria-label="Scan workflow steps completed" aria-valuemin="0" aria-valuemax="100" id="overall"><div class="overall-fill" id="overall-fill" style="width:0"></div></div>
     <p class="help" id="overall-text"></p>
     <ol class="live-steps" id="phases"></ol>
     <p class="banner error hidden" id="progress-error" style="margin:16px 0 0"></p>
@@ -629,7 +665,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
     <h1 id="empty-title">No results yet</h1>
     <p class="muted" id="empty-sub">Run a scan or open a saved report to review findings here.</p>
     <div class="how">
-      <div><span class="step-num">1</span><b>Scan</b><span class="muted">Point at a folder or a GitHub/GitLab URL.</span></div>
+      <div><span class="step-num">1</span><b>Scan</b><span class="muted">Point at a folder or a Git repository URL.</span></div>
       <div><span class="step-num">2</span><b>Prioritise</b><span class="muted">Filter by severity and AI verdict to see what matters.</span></div>
       <div><span class="step-num">3</span><b>Fix</b><span class="muted">Each finding shows evidence, impact and a suggested fix.</span></div>
     </div>
@@ -646,8 +682,12 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
       <button type="button" class="btn hidden" id="rerun-report" title="Scan this project again with the same settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/></svg>Rerun scan</button>
     </div>
     <div id="message" class="banner hidden" role="status"></div>
+    <details class="coverage" id="scan-coverage">
+      <summary><b>Scan coverage</b><span>View scope and reported files</span></summary>
+      <ul id="scan-coverage-list"></ul>
+    </details>
     <details class="coverage hidden" id="coverage-notice">
-      <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg><span><b id="coverage-title"></b> — usually syntax the scanner doesn’t support yet. The rest of the scan is complete. <u>Show files</u></span></summary>
+      <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg><span><b id="coverage-title"></b> <u>Show details</u></span></summary>
       <ul id="coverage-list"></ul>
     </details>
 
@@ -673,7 +713,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
           <select id="severity" aria-label="Severity"><option value="">Any severity</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>info</option><option>unknown</option></select>
           <select id="verdict" aria-label="AI verdict"><option value="">Any AI verdict</option><option value="likely_true_positive">Likely real</option><option value="needs_review">Needs review</option><option value="likely_false_positive">Likely false alarm</option><option value="failed">Review failed</option><option value="unassessed">Not reviewed</option></select>
           <select id="sort" aria-label="Sort"><option value="severity">Sort: severity</option><option value="verdict">Sort: AI verdict</option><option value="file">Sort: file</option></select>
-          <label class="help" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer"><input type="checkbox" id="group">Group by file</label>
+          <select id="group" aria-label="Group findings"><option value="">No grouping</option><option value="file">Group by file</option><option value="type">Group by type</option><option value="package-rule">Group by package or rule</option></select>
         </div>
         <div class="list-meta"><span id="count"></span><button type="button" class="btn ghost sm hidden" id="clear-filters">Clear filters</button></div>
         <div class="list" id="list" role="listbox" aria-label="Findings list" tabindex="-1"></div>
@@ -726,10 +766,33 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   </div>
   <div class="modal-actions"><button type="button" class="btn" id="delete-cancel">Cancel</button><button type="button" class="btn danger-solid" id="delete-go" disabled>Delete project</button></div>
 </dialog>
+<dialog class="modal" id="repository-token-dialog" aria-labelledby="repository-token-title">
+  <form id="repository-token-form">
+    <div class="modal-body">
+      <h2 id="repository-token-title">Authorize this rerun</h2>
+      <p class="help">Enter a repository access token to clone this private repo again.</p>
+      <label class="field"><span>Repository access token</span><input id="rerun-repository-token" type="password" maxlength="2048" autocomplete="off" spellcheck="false" required></label>
+    </div>
+    <div class="modal-actions"><button type="button" class="btn" id="repository-token-cancel">Cancel</button><button class="btn primary" type="submit">Rerun scan</button></div>
+  </form>
+</dialog>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+<script nonce="__NONCE__" src="/assets/highlight.min.js"></script>
 <script>
 const $=id=>document.getElementById(id);
+const themeToggle = $('theme-toggle');
+function updateThemeButton() {
+  themeToggle.setAttribute('aria-pressed', String(document.documentElement.dataset.theme === 'dark'));
+}
+updateThemeButton();
+systemTheme.addEventListener('change', updateThemeButton);
+themeToggle.onclick = () => {
+  savedTheme = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+  applyTheme();
+  updateThemeButton();
+  try { localStorage.setItem('appsec.theme', savedTheme); } catch {}
+};
 const token='__TOKEN__';
 const inContainer=__CONTAINER__;
 const SEVERITIES=['critical','high','medium','low','info','unknown'];
@@ -741,7 +804,10 @@ const VERDICTS={
   unassessed:{label:'Not reviewed',cls:'v-none',color:'var(--border-strong)',order:3},
   likely_false_positive:{label:'Likely false alarm',cls:'v-fp',color:'var(--ok)',order:4},
 };
-const SCANNERS={semgrep:'code issues (Semgrep)',trivy:'vulnerable dependencies (Trivy)',all:'code issues and dependencies'};
+const SCANNERS={semgrep:'code issues (Semgrep)',trivy:'vulnerable dependencies (Trivy)',all:'code issues and dependencies',
+  'gitleaks-files':'secrets in current files (Gitleaks)','gitleaks-history':'secrets in Git history (Gitleaks)'};
+const SCAN_STEPS={semgrep:'Semgrep code scan',trivy:'Trivy dependency scan',
+  'gitleaks-files':'Gitleaks current files','gitleaks-history':'Gitleaks Git history'};
 let report=null,selected=null,visible=[],resultType='all',busy=false,projects=[],providers=[],providerInfo={providers:[],default_provider:'openai'},checks={},checking={},projectId=null,viewGeneration=0,timer=null,lastScan=null,toastTimer=null,lastJob=null,clockOffset=0,currentRunId=null,runInfo={},currentView='scan',reportProjectId=null;
 
 /* ---------- helpers ---------- */
@@ -750,6 +816,14 @@ const badge=(value,cls)=>el('span','badge '+(cls||''),value);
 const sevBadge=s=>badge(s,SEVERITIES.slice(0,4).includes(s)?s:'');
 const verdictBadge=v=>{const d=VERDICTS[v]||{label:v,cls:'v-none'};return badge(d.label,d.cls)};
 const radio=name=>document.querySelector(`input[name="${name}"]:checked`)?.value;
+let repositoryChecking=false,repositoryAccess=null;
+const REPOSITORY_TOKENS={
+  'github.com':{scope:'Use a fine-grained GitHub token for this repo with Contents set to Read-only.',url:'https://github.com/settings/personal-access-tokens/new?contents=read'},
+  'gitlab.com':{scope:'Use a GitLab personal access token with read_repository scope.',url:'https://gitlab.com/-/user_settings/personal_access_tokens'},
+  'bitbucket.org':{scope:'Use a Bitbucket Cloud API token with repository read access.',url:'https://support.atlassian.com/bitbucket-cloud/docs/using-api-tokens/'},
+  'dev.azure.com':{scope:'Use an Azure DevOps personal access token with Code (read) scope.',url:'https://learn.microsoft.com/en-us/azure/devops/organizations/accounts/use-personal-access-tokens-to-authenticate'}
+};
+$('repository-auth').open=inContainer;
 function toast(message,error=false){const t=$('toast');t.textContent=message;t.className='toast show'+(error?' error':'');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.className='toast'+(error?' error':''),error?6000:3000)}
 function banner(message,error=false){const b=$('message');b.textContent=message;b.className='banner'+(error?' error':'');}
 async function call(path,data){
@@ -766,6 +840,7 @@ async function api(path,data){
 async function copy(textValue,label){try{await navigator.clipboard.writeText(textValue);toast(`${label} copied`)}catch{toast('Copy is not available in this browser',true)}}
 function copyButton(value,label){const b=el('button','btn ghost sm','Copy');b.type='button';b.title='Copy '+label.toLowerCase();b.onclick=()=>copy(value,label);return b}
 function showView(name){
+  if(name!=='scan'&&$('repository-token').value){$('repository-token').value='';repositoryAccess=null;updateForm()}
   for(const view of ['scan','results','settings'])$('view-'+view).classList.toggle('hidden',name!==view);
   for(const [id,view] of [['nav-scan','scan'],['nav-results','results'],['nav-settings','settings']]){if(view===name)$(id).setAttribute('aria-current','page');else $(id).removeAttribute('aria-current')}
   if(location.hash!=='#'+name)history.replaceState(null,'','#'+name);
@@ -827,9 +902,16 @@ function load(r,when){
     banner(parts.join('\n'),status==='failed');
   }else $('message').className='banner hidden';
   const warnings=(r.scan.warnings||[]).filter(w=>typeof w==='string');
+  const coverageList=$('scan-coverage-list');coverageList.replaceChildren();
+  const coverage=Object.entries(r.scan.coverage||{});
+  if(!coverage.length)coverageList.append(el('li','','This report has no file coverage data. Run a new scan to collect available coverage details.'));
+  for(const [scanner,item] of coverage){
+    const row=el('li');row.append(el('b','',SCAN_STEPS[scanner]||scanner),coverageDetails(item));
+    coverageList.append(row);
+  }
   const notice=$('coverage-notice');notice.classList.toggle('hidden',!warnings.length);
   if(warnings.length){
-    $('coverage-title').textContent=`${warnings.length} file${warnings.length===1?' was':'s were'} not fully analysed`;
+    $('coverage-title').textContent=`${warnings.length} coverage warning${warnings.length===1?'':'s'}`;
     const list=$('coverage-list');list.replaceChildren();
     for(const w of warnings)list.append(el('li','',w));
     chips.append(el('span','chip warn',`${warnings.length} coverage warning${warnings.length===1?'':'s'}`));
@@ -874,6 +956,7 @@ const assessment=f=>report.assessments.find(a=>a.finding_id===f.id);
 const failure=f=>report.failed_assessments.find(a=>a.finding_id===f.id);
 const outcome=f=>assessment(f)?.verdict||(failure(f)?'failed':'unassessed');
 const findingType=f=>f.category||(f.scanner==='trivy'?'sca':'sast');
+const findingLabel=f=>({sast:'Code',sca:'Dependency',secret:'Secret'})[findingType(f)]||'Finding';
 function title(f){
   if(findingType(f)==='sca')return `${f.package_name||'Dependency'} · ${f.vulnerability_id||f.rule_id}`;
   const last=f.rule_id.split('.').slice(-1)[0].replaceAll('-',' ').replaceAll('_',' ');
@@ -915,22 +998,51 @@ function renderTabs(){
     else if(status&&status!=='completed')b.title='Scanner status: '+status;
     b.setAttribute('aria-pressed',String(resultType===type));b.onclick=()=>{resultType=type;render()};group.append(b);
   }
+  if(report.scan.scanner?.startsWith('gitleaks-')||report.scan.findings.some(f=>findingType(f)==='secret')){
+    const count=report.scan.findings.filter(f=>findingType(f)==='secret').length;
+    const b=el('button','',`Secrets ${count}`);b.type='button';
+    b.setAttribute('aria-pressed',String(resultType==='secret'));
+    b.onclick=()=>{resultType='secret';render()};group.append(b);
+  }
 }
 function sorted(fs){
   const sev=f=>SEVERITIES.indexOf(f.severity)<0?9:SEVERITIES.indexOf(f.severity);
   const by={severity:(a,b)=>sev(a)-sev(b)||VERDICTS[outcome(a)].order-VERDICTS[outcome(b)].order,
     verdict:(a,b)=>VERDICTS[outcome(a)].order-VERDICTS[outcome(b)].order||sev(a)-sev(b),
     file:(a,b)=>a.file_path.localeCompare(b.file_path)||(a.start_line||0)-(b.start_line||0)};
-  const cmp=$('group').checked?(a,b)=>a.file_path.localeCompare(b.file_path)||by[$('sort').value](a,b):by[$('sort').value];
-  return [...fs].sort(cmp);
+  const cmp=by[$('sort').value];
+  return [...fs].sort($('group').value==='file'?(a,b)=>a.file_path.localeCompare(b.file_path)||cmp(a,b):cmp);
+}
+function findingGroup(f,mode){
+  if(mode==='file')return [f.file_path,f.file_path];
+  const type=findingType(f),label=findingLabel(f);
+  if(mode==='type')return [type,label];
+  if(type==='sca'){
+    const ecosystem=f.metadata?.ecosystem,packageName=f.package_name,version=f.installed_version;
+    const key=packageName&&version?[type,ecosystem,packageName,version,f.file_path]:[type,f.id];
+    return [JSON.stringify(key),[packageName||label,version,ecosystem,f.file_path].filter(Boolean).join(' · ')];
+  }
+  return [JSON.stringify([type,f.scanner,f.rule_id,f.file_path]),`${label} · ${f.rule_id} · ${f.file_path}`];
+}
+function groupFindings(findings,mode){
+  if(!mode)return [{findings}];
+  const groups=new Map();
+  for(const f of findings){
+    const [key,label]=findingGroup(f,mode);
+    if(!groups.has(key))groups.set(key,{label,findings:[]});
+    groups.get(key).findings.push(f);
+  }
+  return [...groups.values()];
 }
 function render(){
   if(!report)return;renderTabs();renderSummary();
   const q=$('search').value.trim().toLowerCase(),sev=$('severity').value,ver=$('verdict').value;
-  visible=sorted(report.scan.findings.filter(f=>(resultType==='all'||findingType(f)===resultType)
+  const matches=report.scan.findings.filter(f=>(resultType==='all'||findingType(f)===resultType)
     &&(!sev||(sev==='info'?['info','unknown'].includes(f.severity):f.severity===sev))
     &&(!ver||outcome(f)===ver)
-    &&(!q||[f.rule_id,f.file_path,f.message,f.package_name,f.vulnerability_id,title(f)].join(' ').toLowerCase().includes(q))));
+    &&(!q||[f.rule_id,f.file_path,f.message,f.package_name,f.vulnerability_id,title(f)].join(' ').toLowerCase().includes(q)));
+  const groups=groupFindings(sorted(matches),$('group').value);
+  visible=groups.flatMap(group=>group.findings);
   const filtered=Boolean(q||sev||ver||resultType!=='all');
   $('clear-filters').classList.toggle('hidden',!filtered);
   $('count').textContent=filtered?`Showing ${visible.length} of ${report.scan.findings.length}`:`${visible.length} finding${visible.length===1?'':'s'}`;
@@ -940,15 +1052,24 @@ function render(){
     $('detail').replaceChildren(el('div','no-results',report.scan.findings.length?'Adjust the filters to see findings.':'This scan found no issues.'));selected=null;return;
   }
   if(!visible.some(f=>f.id===selected))selected=visible[0].id;
-  let lastFile=null;
-  for(const f of visible){
-    if($('group').checked&&f.file_path!==lastFile){lastFile=f.file_path;list.append(el('div','group-head',f.file_path))}
-    const b=el('button','finding');b.type='button';b.setAttribute('role','option');b.dataset.id=f.id;
-    b.style.setProperty('--sev',SEV_COLOR[f.severity]||'transparent');b.setAttribute('aria-selected',String(selected===f.id));
-    const top=el('span','finding-top');top.append(sevBadge(f.severity),badge(findingType(f)==='sca'?'Dependency':'Code','type'));
-    if(findingType(f)==='sast')top.append(verdictBadge(outcome(f)));
-    b.append(top,el('span','finding-title',title(f)),el('span','finding-loc',findingType(f)==='sca'?`${f.file_path} · ${f.installed_version||''}`:locationOf(f)));
-    b.onclick=()=>select(f.id,true);list.append(b);
+  for(const {label,findings} of groups){
+    let container=list;
+    if(label){
+      const heading=`${label} (${findings.length})`;
+      container=el('div');container.setAttribute('role','group');container.setAttribute('aria-label',heading);
+      const header=el('div','group-head',heading);header.title=heading;header.setAttribute('aria-hidden','true');
+      container.append(header);list.append(container);
+    }
+    for(const f of findings){
+      const b=el('button','finding');b.type='button';b.setAttribute('role','option');b.dataset.id=f.id;
+      b.style.setProperty('--sev',SEV_COLOR[f.severity]||'transparent');b.setAttribute('aria-selected',String(selected===f.id));
+      const type=findingType(f),top=el('span','finding-top');top.append(sevBadge(f.severity),badge(findingLabel(f),'type'));
+      if(type==='sast')top.append(verdictBadge(outcome(f)));
+      let location=type==='sca'?`${f.file_path} · ${f.installed_version||''}`:locationOf(f);
+      if(type==='secret'&&typeof f.metadata?.commit==='string'&&f.metadata.commit)location+=` · ${f.metadata.commit.slice(0,7)}`;
+      b.append(top,el('span','finding-title',title(f)),el('span','finding-loc',location));
+      b.onclick=()=>select(f.id,true);container.append(b);
+    }
   }
   details(visible.find(f=>f.id===selected));
 }
@@ -986,6 +1107,18 @@ function card(titleText,icon,cls){
   head.append(h);const body=el('div','card-body');c.append(head,body);return {card:c,head,body};
 }
 function block(parent,label,value){if(label)parent.append(el('div','subhead',label));parent.append(el('p','',value||'Not provided.'))}
+function sourceCode(filePath,snippet){
+  const pre=el('pre','code'),code=el('code','',snippet);
+  pre.append(code);
+  const name=filePath.split(/[\\/]/).pop().toLowerCase();
+  const language=name.includes('.')?name.split('.').pop():name;
+  const highlighter=globalThis.hljs;
+  if(snippet.length<=12000&&highlighter?.getLanguage(language)){
+    code.classList.add('language-'+language);
+    highlighter.highlightElement(code);
+  }
+  return pre;
+}
 function fact(dl,label,value){const d=el('div','fact');d.append(el('dt','',label),el('dd','',value));dl.append(d)}
 function cweLink(entry){
   const m=/CWE-(\d+)/i.exec(entry);if(!m)return el('span','',entry);
@@ -993,14 +1126,14 @@ function cweLink(entry){
 }
 function details(f){
   const d=$('detail');d.replaceChildren();if(!f)return;
-  const sca=findingType(f)==='sca',a=assessment(f),fail=failure(f),i=visible.findIndex(x=>x.id===f.id);
+  const sca=findingType(f)==='sca',secret=findingType(f)==='secret',a=assessment(f),fail=failure(f),i=visible.findIndex(x=>x.id===f.id);
   const head=el('div','detail-head');
   const nav=el('div','detail-nav');const pos=el('span','help',`Finding ${i+1} of ${visible.length}`);
   const navBtns=el('div');navBtns.style.display='flex';navBtns.style.gap='4px';
   const prev=el('button','btn ghost sm','← Prev');prev.type='button';prev.disabled=i<=0;prev.onclick=()=>step(-1);
   const next=el('button','btn ghost sm','Next →');next.type='button';next.disabled=i>=visible.length-1;next.onclick=()=>step(1);
   navBtns.append(prev,next);nav.append(pos,navBtns);
-  const badges=el('div','finding-top');badges.append(sevBadge(f.severity),badge(sca?'Dependency':'Code','type'));if(!sca)badges.append(verdictBadge(outcome(f)));
+  const badges=el('div','finding-top');badges.append(sevBadge(f.severity),badge(findingLabel(f),'type'));if(!sca&&!secret)badges.append(verdictBadge(outcome(f)));
   const loc=el('div','loc-row');loc.append(el('span','mono muted',locationOf(f)),copyButton(locationOf(f),'Location'));
   head.append(nav,badges,el('h2','',title(f)),el('div','mono faint',f.rule_id),loc);d.append(head);
 
@@ -1008,7 +1141,8 @@ function details(f){
   const facts=el('dl','facts');facts.style.margin='0';
   fact(facts,'Severity',f.severity);
   if(sca){fact(facts,'Package',f.package_name||'—');fact(facts,'Installed',f.installed_version||'—');fact(facts,'Fixed in',f.fixed_version||'No fix yet')}
-  else{fact(facts,'AI verdict',VERDICTS[outcome(f)]?.label||outcome(f));if(typeof a?.confidence==='number')fact(facts,'AI confidence',Math.round(a.confidence*100)+'%');fact(facts,'File',f.file_path.split('/').pop())}
+  else if(secret&&f.metadata?.commit){fact(facts,'Commit',f.metadata.commit)}
+  else if(!secret){fact(facts,'AI verdict',VERDICTS[outcome(f)]?.label||outcome(f));if(typeof a?.confidence==='number')fact(facts,'AI confidence',Math.round(a.confidence*100)+'%');fact(facts,'File',f.file_path.split('/').pop())}
   body.append(facts);
 
   // Fix first: what should the developer do?
@@ -1016,11 +1150,12 @@ function details(f){
   if(sca){
     if(f.fixed_version){const up=el('div','upgrade');up.append(el('span','',f.package_name),el('span','from',f.installed_version||'?'),el('span','','→'),el('span','to',f.fixed_version),copyButton(f.fixed_version,'Fixed version'));fix.body.append(up,el('p','help',`Upgrade ${f.package_name} in ${f.file_path} to ${f.fixed_version} or later, then rebuild the lockfile.`))}
     else fix.body.append(el('p','','No fixed version is published yet. Consider a workaround, replacing the package, or accepting the risk with a documented reason.'));
-  }else if(a)block(fix.body,null,a.remediation);
+  }else if(secret)fix.body.append(el('p','','If this is a real credential, revoke or rotate it and remove it from the source.'));
+  else if(a)block(fix.body,null,a.remediation);
   else fix.body.append(el('p','muted',fail?'The AI review failed, so there is no suggested fix. Use the scanner guidance below.':'Turn on AI review when scanning to get a suggested fix, or follow the scanner guidance below.'));
   body.append(fix.card);
 
-  if(!sca){
+  if(!sca&&!secret){
     const ai=card('AI review','ai');
     if(a){
       const top=el('div');top.style.display='flex';top.style.flexWrap='wrap';top.style.gap='10px';top.style.alignItems='center';top.append(verdictBadge(a.verdict));
@@ -1031,19 +1166,69 @@ function details(f){
     }else ai.body.append(el('p','muted',fail?.error||'Not reviewed. Run a scan with AI review turned on to get a verdict.'));
     body.append(ai.card);
     const code=card('Affected code','code');
-    if(typeof f.source_snippet==='string'&&f.source_snippet){code.body.style.padding='0';code.body.append(el('pre','code',f.source_snippet))}
+    if(typeof f.source_snippet==='string'&&f.source_snippet){code.body.style.padding='0';code.body.append(sourceCode(f.file_path,f.source_snippet))}
     else code.body.append(el('p','muted',f.source_error||'Source code is not included in this report. Run a new scan to capture it.'));
     body.append(code.card);
   }
-  const ev=card('Scanner details','scan');block(ev.body,null,f.message);if(sca&&f.file_path)block(ev.body,'Dependency file',f.file_path);body.append(ev.card);
+  const ev=card('Scanner details','scan');
+  if(secret&&f.scanner?.startsWith('gitleaks-')){
+    const history=f.scanner==='gitleaks-history';
+    block(ev.body,'Scan scope',history?'Git commit patches':'Current files');
+    block(ev.body,'Matched rule',f.rule_id);
+    block(ev.body,history?'Location in commit':'Location in file',locationOf(f));
+    if(history&&f.metadata?.commit)ev.body.append(copyButton(f.metadata.commit,'Commit hash'));
+    block(ev.body,'Evidence','Gitleaks flagged a possible credential at this location. The report stores the location and rule ID and omits the matched value and source excerpt.');
+  }else{
+    block(ev.body,null,f.message);
+    if(sca&&f.file_path)block(ev.body,'Dependency file',f.file_path);
+  }
+  body.append(ev.card);
   if(f.cwe?.length){const cl=card('Classification','tag');const links=el('div','links');links.style.display='flex';links.style.flexDirection='column';links.style.gap='4px';for(const c of f.cwe)links.append(cweLink(c));cl.body.append(links);body.append(cl.card)}
 }
 
 /* ---------- scan form ---------- */
+function coverageDetails(item){
+  const box=el('div');
+  if(!item){box.append(el('p','help','File coverage unavailable in this report.'));return box}
+  const analysisLabels={no_known_vulnerabilities:'No known vulnerabilities detected in the selected database',
+    vulnerabilities_detected:'Vulnerabilities detected',partial:'Dependency analysis partially completed',
+    unsupported:'Unsupported vulnerability analysis reported by scanner',unconfirmed:'Dependency analysis unconfirmed',
+    failed:'Scanner execution or analysis failed'};
+  if(item.analysis_status)box.append(el('p','',analysisLabels[item.analysis_status]||item.analysis_status));
+  for(const limitation of item.limitations||[])box.append(el('p','help',limitation));
+  if(item.database?.UpdatedAt)box.append(el('p','help','Vulnerability database updated '+item.database.UpdatedAt));
+  const scanned=Array.isArray(item.files)?new Set(item.files):null;
+  const inventory=Array.isArray(item.inventory_files)?item.inventory_files:null;
+  const skipped=item.skipped||{};
+  const unconfirmed=inventory&&scanned?inventory.filter(path=>!scanned.has(path)):null;
+  box.append(el('p','',scanned?`${item.files_label||'Files reported as scanned'}: ${scanned.size}`:'File coverage unavailable'));
+  if(unconfirmed)box.append(el('p','help',`${inventory.length} files inventoried · ${unconfirmed.length} absent from the scanned-file list. Git metadata is excluded from the inventory.`));
+  if(inventory&&!item.inventory_complete)box.append(el('p','warn','The inventory is incomplete because of links, access errors or collection limits.'));
+  box.append(el('p','help',item.scope||''));
+  if(scanned?.size===0)box.append(el('p','warn','Zero files reported. Review the target, selected rules and exclusions.'));
+  const rows=[...new Set([...(inventory||[]),...(scanned||[]),...Object.keys(skipped)])].sort().map(path=>
+    `${path} — ${scanned?.has(path)?'reported as scanned':skipped[path]?'skipped: '+skipped[path]:'coverage unconfirmed'}`);
+  const packages=(item.packages||[]).map(p=>`${p.name}@${p.version} · ${p.relationship} · ${p.ecosystem} · ${p.file_path}`);
+  if(item.packages)box.append(el('p','',`${item.packages.length} dependency records extracted. This count confirms parsing; advisory matching depends on database coverage.`));
+  for(const [label,items] of [['File audit',rows],['Dependency inventory',packages],['Rule IDs reported by Semgrep',item.rules||[]]]){
+    if(!items.length)continue;
+    const details=el('details');details.append(el('summary','',`${label} (${items.length})`));
+    const search=el('input');search.type='search';search.placeholder='Search '+label.toLowerCase();search.setAttribute('aria-label',search.placeholder);
+    const list=el('ul'),count=el('p','help');
+    const draw=()=>{
+      const matches=items.filter(value=>value.toLowerCase().includes(search.value.toLowerCase()));
+      list.replaceChildren(...matches.slice(0,200).map(value=>el('li','mono',value)));
+      count.textContent=`Showing ${Math.min(matches.length,200)} of ${matches.length}. The full audit is included in the exported report.`;
+    };
+    search.oninput=draw;draw();details.append(search,count,list);box.append(details);
+  }
+  return box;
+}
 function currentProvider(){return providers.find(p=>p.name===radio('provider'))}
-function mode(){return $('ai-toggle').checked?'triage':'scan'}
+function mode(){return $('ai-toggle').checked&&!radio('scanner').startsWith('gitleaks-')?'triage':'scan'}
 function updateForm(){
   const remote=radio('source')==='remote',p=currentProvider(),triage=mode()==='triage';
+  $('ai-toggle').disabled=radio('scanner').startsWith('gitleaks-');
   $('ai-options').classList.toggle('hidden',!triage);
   const warn=triage&&p&&!p.configured;
   $('provider-warning').classList.toggle('hidden',!warn);
@@ -1055,19 +1240,32 @@ function updateForm(){
   const parts=[target?`Scan ${target}`:'Choose a repository',`for ${SCANNERS[radio('scanner')]}`];
   if(triage)parts.push(`then AI-review up to ${$('limit').value||0} code findings with ${p?.label||'AI'}${($('model').value.trim()||p?.default_model)?' ('+($('model').value.trim()||p.default_model)+')':''}`);
   $('scan-summary').textContent=parts.join(' ')+'.';
-  $('target-help').textContent=remote?(inContainer?'Public GitHub or GitLab URL. Private repositories need Git credentials inside the container.':'HTTPS or SSH URL from github.com or gitlab.com. Private repos use your Git credential manager or SSH agent; no tokens are entered here.'):inContainer?'The mounted repository is at /workspace. You can also enter a subfolder.':'Use Browse… or paste a full path. Relative paths start from where you launched the dashboard.';
+  $('target-help').textContent=remote?(inContainer?'Use a GitHub, GitLab, Bitbucket Cloud or Azure Repos clone URL. For private HTTPS repos, add an access token below.':'Use a GitHub, GitLab, Bitbucket Cloud or Azure Repos clone URL. HTTPS can open browser sign-in through Git Credential Manager. SSH uses your existing agent.'):inContainer?'The mounted repository is at /workspace. You can also enter a subfolder.':'Use Browse… or paste a full path. Relative paths start from where you launched the dashboard.';
+  const host=remote&&/^https:\/\/(?:[^/@]+@)?([\w.-]+)\//i.exec(target)?.[1]?.toLowerCase();
+  const tokenGuide=Object.hasOwn(REPOSITORY_TOKENS,host)?REPOSITORY_TOKENS[host]:null;
+  $('repository-auth').classList.toggle('hidden',!tokenGuide);
+  if(tokenGuide){$('repository-token-scope').textContent=tokenGuide.scope;$('repository-token-link').href=tokenGuide.url}
+  const access=$('repository-access'),status=$('repository-access-status');
+  access.classList.toggle('hidden',!remote);access.disabled=!target||repositoryChecking;
+  access.textContent=repositoryChecking?'Checking access…':!inContainer&&tokenGuide&&!$('repository-token').value?'Connect and check access':'Check repository access';
+  const branch=$('branch').value.trim();
+  const result=remote&&repositoryAccess?.target===target&&repositoryAccess?.branch===branch?repositoryAccess:null;
+  status.className='help'+(!result?' hidden':result.failed?' warn':result.done?' ok':'');
+  status.textContent=result?.message||'';
 }
 function applySource(clearTarget=true){
   const remote=radio('source')==='remote';
   $('target-label').textContent=remote?'Repository URL':'Repository folder';
-  if(clearTarget)$('target').value=!remote&&inContainer?'/workspace':'';
+  if(clearTarget){$('target').value=!remote&&inContainer?'/workspace':'';$('repository-token').value=''}
   $('target').placeholder=remote?'https://github.com/owner/repo.git':inContainer?'/workspace':'/path/to/your/repository';
   $('browse').classList.toggle('hidden',remote||inContainer);$('branch-label').classList.toggle('hidden',!remote);
   updateForm();
 }
 for(const r of document.querySelectorAll('input[name="source"]'))r.onchange=()=>applySource();
 for(const r of document.querySelectorAll('input[name="scanner"]'))r.onchange=updateForm;
-for(const id of ['target','model','limit','ai-toggle'])$(id).addEventListener('input',updateForm);
+for(const id of ['branch','model','limit','ai-toggle'])$(id).addEventListener('input',updateForm);
+$('target').addEventListener('input',()=>{$('repository-token').value='';repositoryAccess=null;updateForm()});
+$('repository-token').addEventListener('input',()=>{repositoryAccess=null;updateForm()});
 async function loadProviders(){
   providerInfo=await api('/api/providers');providers=providerInfo.providers;
   renderProviderChoices();renderSettings();
@@ -1187,16 +1385,31 @@ async function saveModel(p,model){
   catch(err){toast(err.message,true)}
 }
 $('browse').onclick=async()=>{const button=$('browse');button.disabled=true;button.textContent='Choosing…';toast('Choose a repository folder in the dialog.');try{const res=await fetch('/api/folder',{method:'POST',headers:{'X-Appsec-Token':token}});const body=await res.json();if(!res.ok)throw Error(body.error||'Unable to open folder picker.');if(body.path){$('target').value=body.path;updateForm();toast('Folder selected')}else toast('Folder selection cancelled')}catch(err){toast(err.message,true)}finally{button.disabled=false;button.textContent='Browse…'}};
+$('repository-access').onclick=async()=>{
+  const target=$('target').value.trim(),branch=$('branch').value.trim();
+  if(repositoryChecking||radio('source')!=='remote'||!target)return;
+  const repositoryToken=$('repository-token').value.trim();
+  const browserSignIn=!repositoryToken&&!inContainer&&/^https:\/\//i.test(target);
+  const result={target,branch,message:browserSignIn?'If a sign-in page opens, complete sign-in there and return here.':'Checking repository access…'};
+  repositoryChecking=true;repositoryAccess=result;updateForm();
+  try{
+    await api('/api/repository/access',{target,branch,repository_token:repositoryToken});
+    result.message=branch?'Repository and branch are accessible.':'Repository is accessible.';
+    result.done=true;
+  }catch(err){result.message=err.message;result.failed=true}
+  finally{repositoryChecking=false;updateForm()}
+};
 function formData(){
   return {name:$('project-name').value,project_id:projectId,source:radio('source'),target:$('target').value.trim(),branch:$('branch').value,
     scanner:radio('scanner'),mode:mode(),limit:Number($('limit').value),provider:radio('provider')||'openai',model:$('model').value.trim()};
 }
 function checkForm(){
+  if(repositoryChecking&&radio('source')==='remote'){toast('Wait for the repository access check to finish.');return false}
   if(!$('target').value.trim()){toast(radio('source')==='remote'?'Enter a repository URL.':'Choose a repository folder.',true);$('target').focus();return false}
   const limit=Number($('limit').value);if(!Number.isInteger(limit)||limit<0||limit>100){toast('Findings to review must be a whole number from 0 to 100.',true);return false}
   if(mode()==='triage'){const p=currentProvider();
     if(p&&!p.configured){toast(`Connect ${p.label} in Settings first.`,true);openSettings(p.name);return false}
-    if(p&&!p.default_model&&!$('model').value.trim()){toast(`Enter a model ID for ${p.label} under Advanced options.`,true);document.querySelector('details.advanced').open=true;$('model').focus();return false}}
+    if(p&&!p.default_model&&!$('model').value.trim()){toast(`Enter a model ID for ${p.label} under Advanced options.`,true);$('model').closest('details').open=true;$('model').focus();return false}}
   return true;
 }
 
@@ -1219,6 +1432,7 @@ function renderProjects(){
 }
 function applyProject(){
   const p=projects.find(x=>x.id===projectId);
+  $('repository-token').value='';repositoryAccess=null;
   for(const r of document.querySelectorAll('input[name="source"]'))r.disabled=Boolean(p);
   for(const id of ['target','branch','project-name','browse'])$(id).disabled=Boolean(p);
   if(p){document.querySelector(`input[name="source"][value="${p.source}"]`).checked=true;applySource(false);$('target').value=p.target;$('branch').value=p.branch||'';$('project-name').value=p.name}
@@ -1261,7 +1475,10 @@ async function openRun(id,{show=true}={}){
   }catch(e){hideLoading();toast(e.message,true)}
   finally{button?.classList.remove('loading')}
 }
-$('new-project').onclick=$('new-project-rail').onclick=()=>{closeDrawer();selectProject(null);showView('scan');$('target').focus()};
+$('new-project').onclick=$('new-project-rail').onclick=()=>{
+  if(busy){showView('scan');toast('Wait for the current scan to finish, or stop it before starting a new project.');return}
+  closeDrawer();selectProject(null);renderProgress('form');showView('scan');$('target').focus();
+};
 $('delete-project').onclick=()=>projectId!=null&&deleteProject(projectId);
 function markRun(id){for(const b of $('history').querySelectorAll('.run'))b.setAttribute('aria-current',String(b.dataset.id===String(id)))}
 async function showHistory(){
@@ -1300,7 +1517,7 @@ function placeholderSteps(scan){
   // Shown for the moment between pressing Start and the first server update.
   const steps=[{id:'prepare',label:scan?.source==='remote'?'Clone repository':'Check repository folder',status:'running'}];
   const names=scan?.scanner==='all'?['semgrep','trivy']:[scan?.scanner||'semgrep'];
-  for(const n of names)steps.push({id:'scan:'+n,label:n==='trivy'?'Trivy dependency scan':'Semgrep code scan',status:'pending'});
+  for(const n of names)steps.push({id:'scan:'+n,label:SCAN_STEPS[n],status:'pending'});
   if(scan?.mode==='triage')steps.push({id:'triage',label:'AI review',status:'pending'});
   steps.push({id:'report',label:'Write report',status:'pending'});
   return steps;
@@ -1311,7 +1528,10 @@ function stepDetail(step){
   if(step.id==='triage'&&step.status==='running'){
     const done=step.current||0,total=step.total||0;return (step.detail||'Starting AI review')+(total?` · ${done} of ${total} reviewed`:'');
   }
-  if(step.status==='running')return step.detail||(step.id==='prepare'?'Preparing…':'Working…');
+  if(step.status==='running'){
+    const detail=step.detail||(step.id==='prepare'?'Preparing…':'Scanner started · waiting for results');
+    return detail+(step.updated?` · last update ${clock(Math.max(0,serverNow()-step.updated))} ago`:'');
+  }
   if(step.id.startsWith('scan:')&&typeof n==='number')return `${n} finding${n===1?'':'s'}`+(step.detail?` · ${step.detail}`:'');
   return step.detail||({done:'Done',failed:'Failed',warning:'Finished with warnings',skipped:'Skipped',cancelled:'Stopped'}[step.status]||'');
 }
@@ -1321,7 +1541,7 @@ function stepTime(step){
 }
 function overallFraction(steps){
   if(!steps.length)return 0;
-  const score=steps.reduce((sum,s)=>sum+(['done','warning','failed','skipped','cancelled'].includes(s.status)?1:s.status==='running'?(s.total?Math.min(1,(s.current||0)/s.total):0.4):0),0);
+  const score=steps.reduce((sum,s)=>sum+(['done','warning','failed','skipped','cancelled'].includes(s.status)?1:0),0);
   return score/steps.length;
 }
 function renderProgress(state,job){
@@ -1337,20 +1557,24 @@ function renderProgress(state,job){
   // Title and summary
   $('progress-icon').textContent={done:'✓',cancelled:'■'}[state]||'!';
   $('progress-title').textContent=state==='running'?(job?.cancelling?'Stopping scan…':(runningStep?.label||job?.phase||'Starting scan')+'…')
-    :{done:'Scan complete',cancelled:'Scan stopped'}[state]||'Scan could not finish';
+    :{done:'Scan finished — review coverage below',cancelled:'Scan stopped'}[state]||'Scan could not finish';
   $('progress-sub').textContent=state==='running'?(runningStep?stepDetail(runningStep):'Getting ready…')
-    :state==='done'?(report?`${report.scan.findings.length} findings found, ${report.assessments.length} reviewed by AI.`:'')
+    :state==='done'?(report?`${report.scan.findings.length} matching findings. File coverage and enabled rules determine what this scan can detect.`:'')
     :state==='cancelled'?'You stopped this scan. Partial results were discarded; run it again any time.'
     :'See the failed step below for details.';
   const fraction=state==='done'?1:overallFraction(steps);
   $('overall-fill').style.width=Math.round(fraction*100)+'%';$('overall').setAttribute('aria-valuenow',String(Math.round(fraction*100)));
-  $('overall-text').textContent=state==='running'?`Step ${Math.min(index+1,steps.length)} of ${steps.length} · ${Math.round(fraction*100)}%`:state==='done'?`All ${steps.filter(s=>s.status!=='pending').length} steps finished`:'';
+  $('overall-text').textContent=state==='running'?`Step ${Math.min(index+1,steps.length)} of ${steps.length} · ${Math.round(fraction*steps.length)} steps finished`:state==='done'?`All ${steps.filter(s=>s.status!=='pending').length} steps finished`:'';
   // Steps
   const list=$('phases');list.replaceChildren();
   for(const step of steps){
     const li=el('li','live-step '+step.status);li.append(el('span','marker'));
     const main=el('div');const line=el('div','step-line');line.append(el('span','step-label',step.label),el('span','step-time',stepTime(step)));
     main.append(line,el('div','step-detail',stepDetail(step)));
+    if(state==='done'&&step.id.startsWith('scan:')){
+      const scanner=step.id.slice(5);
+      main.append(coverageDetails(job?.report?.scan?.coverage?.[scanner]));
+    }
     if(step.id==='triage'&&step.total&&step.status==='running'){
       const mini=el('div','mini');const track=el('div','meter-track');const fill=el('div','meter-fill');
       fill.style.width=Math.round(100*(step.current||0)/step.total)+'%';track.append(fill);
@@ -1420,7 +1644,10 @@ $('scan-form').onsubmit=async e=>{
   e.preventDefault();if(busy||!checkForm())return;
   lastScan=formData();lastJob={started:Date.now()/1000+clockOffset};$('activity').open=false;
   running(true);renderProgress('running',null);
-  try{const job=await api('/api/scan',lastScan);lastJob.run_id=job.run_id;await refreshProjects(job.project_id);poll()}
+  try{
+    const job=await api('/api/scan',{...lastScan,repository_token:$('repository-token').value.trim()});
+    $('repository-token').value='';lastJob.run_id=job.run_id;await refreshProjects(job.project_id);poll();
+  }
   catch(err){running(false);renderProgress('form');toast(err.message,true)}
 };
 
@@ -1458,6 +1685,20 @@ function setCurrentRun(id){
   const project=projects.find(p=>p.id===projectId);
   $('rerun-report').classList.toggle('hidden',id==null||project?.available===false);$('rerun-report').disabled=busy;
 }
+function askRepositoryToken(){
+  const dialog=$('repository-token-dialog'),input=$('rerun-repository-token');
+  if(dialog.open)return Promise.resolve('');
+  input.value='';
+  return new Promise(resolve=>{
+    $('repository-token-form').onsubmit=e=>{e.preventDefault();dialog.close('scan')};
+    $('repository-token-cancel').onclick=()=>dialog.close('cancel');
+    dialog.addEventListener('close',()=>{
+      const value=dialog.returnValue==='scan'?input.value.trim():'';
+      input.value='';resolve(value);
+    },{once:true});
+    dialog.returnValue='';dialog.showModal();input.focus();
+  });
+}
 async function rerun(id){
   if(busy){toast('A scan is already running.',true);return}
   const info=runInfo[id];
@@ -1466,7 +1707,15 @@ async function rerun(id){
     if(!confirm(`Rerun with AI review? Up to ${info.settings?.limit??5} findings will be sent to ${provider} again, which uses API credits.`))return;
   }
   try{
-    const job=await api(`/api/runs/${id}/rerun`,{});
+    const path=`/api/runs/${id}/rerun`;
+    let response=await call(path,{});
+    if(response.status===428){
+      const repositoryToken=await askRepositoryToken();
+      if(!repositoryToken)return;
+      response=await call(path,{repository_token:repositoryToken});
+    }
+    if(!response.ok)throw Error(response.body.error||'Dashboard request failed.');
+    const job=response.body;
     lastScan=job.scan;lastJob={started:Date.now()/1000+clockOffset,run_id:job.run_id};$('activity').open=false;
     showView('scan');running(true);renderProgress('running',null);
     toast('Rerunning scan'+(info?.when?' from '+info.when:''));
