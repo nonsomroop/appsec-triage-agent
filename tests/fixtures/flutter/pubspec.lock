@@ -1,0 +1,19 @@
+# Representative hosted-package entries from the reported Flutter dependency versions.
+packages:
+  image_picker:
+    dependency: "direct main"
+    description:
+      name: image_picker
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.1.2"
+  image_picker_android:
+    dependency: transitive
+    description:
+      name: image_picker_android
+      url: "https://pub.dev"
+    source: hosted
+    version: "0.8.12+3"
+sdks:
+  dart: ">=3.4.0 <4.0.0"
+  flutter: ">=3.22.0"

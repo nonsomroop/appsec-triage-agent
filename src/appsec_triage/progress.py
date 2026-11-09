@@ -5,6 +5,7 @@ never source code, AI output or credentials.
 """
 import json
 import time
+import threading
 from pathlib import Path
 
 MAX_LOG = 200
@@ -36,16 +37,33 @@ class TrackedScanner:
 
     def scan(self, target):
         self.progress.emit(self.step, "start")
+        stopped = threading.Event()
+
+        def heartbeat():
+            while not stopped.wait(5):
+                self.progress.emit(self.step, "progress", detail="Scan task active · waiting for scanner results")
+
+        worker = threading.Thread(target=heartbeat, daemon=True)
+        worker.start()
         try:
             result = self.scanner.scan(target)
         except Exception:
+            stopped.set()
+            worker.join()
             self.progress.emit(self.step, "failed", detail="Scanner crashed")
             raise
+        finally:
+            stopped.set()
+            worker.join()
         errors, warnings = len(result.errors), len(result.warnings)
         status = ("failed" if result.status == "failed" else
                   "warning" if result.status != "completed" or warnings else "done")
         notes = [f"{errors} scanner error{'s' * (errors != 1)}" if errors else None,
-                 f"{warnings} file{'s' * (warnings != 1)} not fully analysed" if warnings else None]
+                 f"{warnings} coverage warning{'s' * (warnings != 1)}" if warnings else None]
+        coverage = result.coverage.get(result.scanner)
+        if coverage:
+            count = len(coverage.files) if coverage.files is not None else None
+            notes.insert(0, f"{coverage.files_label}: {count}" if count is not None else "File coverage unavailable")
         self.progress.emit(self.step, status, count=len(result.findings),
                            detail="; ".join(note for note in notes if note) or None)
         return result
@@ -86,6 +104,7 @@ class ProgressState:
                     self.step(planned["id"])["label"] = str(planned.get("label", planned["id"]))[:200]
             return
         step = self.step(str(event.get("step", "unknown")))
+        step["updated"] = when
         label = step["label"]
         for key in ("detail", "count", "current", "total"):
             if key in event:

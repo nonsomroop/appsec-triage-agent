@@ -26,7 +26,7 @@ run the same command in PowerShell, Bash, or Zsh:
 docker compose up --build
 ```
 
-Open http://127.0.0.1:8765. The image includes Git, Semgrep, and Trivy.
+Open http://127.0.0.1:8765. The image includes Git, Semgrep, Trivy, and Gitleaks.
 If that port is busy, set `APPSEC_PORT=8766` in the project's local `.env`,
 rerun Compose, and open http://127.0.0.1:8766.
 In **Local folder** mode, scan `/workspace` to try the included vulnerable example.
@@ -36,9 +36,11 @@ for example `APPSEC_SCAN_DIR="C:/Users/Alex/My Projects/demo"` on Windows or
 `APPSEC_SCAN_DIR=/home/alex/projects/demo` on Linux. Docker must have read access
 to that folder. Its path in the dashboard is always `/workspace`.
 
-For public remote repositories, choose **GitHub / GitLab** and paste the URL.
-The container has its own Git configuration. Use the native setup below if you
-want to use your host's existing private-repository credentials and desktop picker.
+For remote repositories, choose **Git repository URL** and paste the clone URL.
+For a private HTTPS repository, open **Private repository access** and use its
+provider link to create a read-only token. Paste the token, click **Check repository
+access**, then start the scan. The dashboard clones the repository inside the
+container and clears the token from the form when the scan starts.
 For optional AI triage, Compose passes the provider variables listed under
 [AI providers](#ai-providers) from your shell or local `.env` into the container.
 Scan-only mode needs none of them.
@@ -190,7 +192,7 @@ To delete a project, hover over it in the sidebar and choose the bin icon, or us
 removes the project and all of its saved scans, findings and AI reviews from the
 dashboard; deleted rows are overwritten in the history database because reports
 contain source excerpts. It never deletes your source code: local folders and
-GitHub/GitLab repositories are left untouched (temporary clones are already
+Remote repositories are left untouched (temporary clones are already
 removed after every scan). A project cannot be deleted while it is being scanned.
 New scans save bounded source excerpts in the report, including in Semgrep-only mode.
 Older reports need a new scan to include source code. Excluded or unavailable files
@@ -224,33 +226,43 @@ container preserves reports. Removing the volume deletes its history.
 Each developer has a local project library. Reports can contain source excerpts.
 Imported JSON remains in the browser. Export a report to share a copy.
 
-### GitHub and GitLab repositories
+### Remote Git repositories
 
-In the scan form, choose **GitHub / GitLab**, enter a repository URL, and optionally
-specify a branch. Supported URL forms include:
+In the scan form, choose **Git repository URL**, paste the clone URL, and
+optionally specify a branch. Supported URL forms include:
 
 ```text
 https://github.com/owner/repository.git
 https://gitlab.com/group/subgroup/repository.git
+https://bitbucket.org/workspace/repository.git
+https://dev.azure.com/organization/project/_git/repository
 git@github.com:owner/repository.git
 ssh://git@gitlab.com/group/repository.git
+git@bitbucket.org:workspace/repository.git
+git@ssh.dev.azure.com:v3/organization/project/repository
 ```
 
-Git must be installed on PATH. Public HTTPS repositories need no credentials.
-Private HTTPS repositories use your existing Git credential manager (which may
-store a PAT); SSH repositories use your SSH agent and existing host trust.
-Configure and verify access with Git in your terminal before starting the UI.
-Start the UI from the same terminal so it inherits the SSH agent environment.
-Authentication is noninteractive: the UI does not prompt for passwords, tokens,
-key passphrases or host-key acceptance. It rejects credentials embedded in URLs.
+Git must be installed on PATH. On a desktop with Git Credential Manager enabled,
+choose **Connect and check access** for an HTTPS repository. If sign-in is needed,
+complete it in the window opened by Git Credential Manager, then return to the
+dashboard. Git Credential Manager handles credential storage. Public HTTPS
+repositories can be scanned directly.
 
-The app creates a shallow checkout of the selected/default branch in a temporary
-folder, scans it, and deletes the checkout afterward, including on clone/scan
+For an SSH repository, **Check repository access** uses your existing SSH agent
+and trusted host keys. With **Private repository access**, an HTTPS access token
+is supplied only to the requested repository's Git operation and is never saved
+in project settings, scan history, or reports. Enter a token again when prompted
+to rerun a token-authenticated scan. Scan clones run without prompting. Use clone
+URLs without embedded passwords or tokens.
+
+The app checks out the selected/default branch in a temporary folder. Git history
+scans clone the branch's history, while other scans use a shallow checkout.
+The app deletes the checkout afterward, including on clone/scan
 failure. Export the report to keep results. Cloning has a five-minute timeout.
 Submodules and Git LFS objects are not downloaded; findings do not cover their
-contents. This first version supports github.com and gitlab.com, not self-hosted
-instances or SSH aliases. It uses trusted local Git configuration and credential
-helpers. Repository source is not executed by the app.
+contents. The supported hosts are GitHub.com, GitLab.com, Bitbucket Cloud, and
+Azure Repos on dev.azure.com. The app uses trusted local Git configuration and
+credential helpers. Repository source is not executed by the app.
 
 ## Testing
 
@@ -313,6 +325,25 @@ correlation, historical vulnerability management, backend APIs, a dashboard and
 CI integrations. Active DAST will require explicit authorisation; any future
 automated code changes will require human approval. None is implemented yet.
 
+## Secret scanning
+
+Choose **Secrets in current files** to check the selected folder, including
+uncommitted files. Choose **Secrets in Git history** to check commits reachable
+from local Git refs. Select the checkout root and make its Git metadata
+available to the scanner. A shallow clone limits coverage to available commits.
+
+Docker bundles Gitleaks. For native execution, install Gitleaks 8.30.1 or newer
+and put it on PATH. History scans also require Git on PATH.
+
+```sh
+appsec-triage scan ./your-repository --scanner gitleaks-files
+appsec-triage scan ./your-repository --scanner gitleaks-history
+```
+
+Reports include the rule, file, line range, and commit hash when available.
+Secret values and source excerpts are omitted, and these scans run without AI.
+Gitleaks honors a repository's `.gitleaksignore` file.
+
 ## Dependency vulnerability scanning (SCA)
 
 Install Trivy separately and put its executable on PATH. See the
@@ -328,7 +359,7 @@ appsec-triage scan ./your-repository --scanner all --output reports/combined.jso
 ```
 
 The default scanner remains Semgrep. In the UI choose **SCA - Trivy** or **SAST + SCA**
-under Scanner. Local folders and GitHub/GitLab checkouts support both choices.
+under Scanner. Local folders and remote checkouts support both choices.
 Dependency findings include the advisory ID, package, installed version, available
 fixed version and dependency file. Missing fixes are shown explicitly; no source
 line is invented. Export preserves these fields. Scanner errors remain visible,

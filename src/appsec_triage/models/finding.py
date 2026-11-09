@@ -15,7 +15,7 @@ class Finding(BaseModel):
     file_path: str = Field(min_length=1)
     start_line: int | None = Field(default=None, ge=1)
     end_line: int | None = Field(default=None, ge=1)
-    category: Literal["sast", "sca"] = "sast"
+    category: Literal["sast", "sca", "secret"] = "sast"
     package_name: str | None = None
     installed_version: str | None = None
     fixed_version: str | None = None

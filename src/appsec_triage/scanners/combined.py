@@ -19,6 +19,7 @@ class CombinedScanner:
             statuses.append(result.status)
             combined.scanner_statuses[result.scanner] = result.status
             combined.findings.extend(result.findings)
+            combined.coverage.update(result.coverage)
             combined.errors.extend(f"{result.scanner}: {error}" for error in result.errors)
             combined.warnings.extend(f"{result.scanner}: {warning}" for warning in result.warnings)
             if result.status != "completed" and not result.errors:

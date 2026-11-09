@@ -15,7 +15,10 @@ from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
-from appsec_triage.repositories import RepositoryError, clone_repository, validate_remote
+from appsec_triage.repositories import (
+    RepositoryError, check_repository_access, clone_repository, validate_remote, validate_repository_token,
+)
+from appsec_triage.scanners.base import SCAN_CHOICES
 from appsec_triage.folder_picker import FolderPickerError, choose_folder
 from appsec_triage.history import History
 from appsec_triage.progress import ProgressState
@@ -107,6 +110,7 @@ class LocalServer(ThreadingHTTPServer):
         self.token = secrets.token_urlsafe(32)
         self.lock = threading.Lock()
         self.picker_lock = threading.Lock()
+        self.repository_access_lock = threading.Lock()
         self.check_lock = threading.Lock()
         self.check_times = deque()
         self.job = {"status": "idle"}
@@ -175,7 +179,7 @@ class LocalServer(ThreadingHTTPServer):
                 return
 
     def scan(self, target, mode, limit, source="local", branch="", scanner="semgrep", run_id=None,
-             provider="openai", model=""):
+             provider="openai", model="", *, repository_token=""):
         revision = None
         started = time.time()
         env = dict(os.environ)
@@ -196,7 +200,10 @@ class LocalServer(ThreadingHTTPServer):
                              "detail": target if source == "remote" else None})
                 self.publish(state, started)
                 if source == "remote":
-                    scan_target = str(clone_repository(target, branch, Path(directory)))
+                    clone_options = {"full_history": True} if scanner == "gitleaks-history" else {}
+                    if repository_token:
+                        clone_options["token"] = repository_token
+                    scan_target = str(clone_repository(target, branch, Path(directory), **clone_options))
                 if run_id is not None:
                     revision = git_revision(scan_target)
                 state.apply({"step": "prepare", "status": "done", "time": time.time(),
@@ -327,8 +334,14 @@ class Handler(BaseHTTPRequestHandler):
             nonce = secrets.token_urlsafe(16)
             page = Path(__file__).with_name("web_ui.html").read_text(encoding="utf-8")
             page = page.replace("__CONTAINER__", json.dumps(self.server.container))
-            page = page.replace("<script>", f'<script nonce="{nonce}">').replace("__TOKEN__", self.server.token)
+            page = page.replace("<script>", f'<script nonce="{nonce}">').replace("__NONCE__", nonce)
+            page = page.replace("__TOKEN__", self.server.token)
             return self.respond(200, page, "text/html; charset=utf-8", nonce)
+        if self.path == "/assets/highlight.min.js":
+            if not self.trusted_host():
+                return self.respond(403, {"error": "Local access only"})
+            script = Path(__file__).with_name("assets") / "highlight.min.js"
+            return self.respond(200, script.read_text(encoding="utf-8"), "application/javascript; charset=utf-8")
         try:
             self.guard()
         except RequestError as exc:
@@ -368,6 +381,8 @@ class Handler(BaseHTTPRequestHandler):
             self.guard(post=True)
             if self.path == "/api/folder":
                 return self.folder()
+            if self.path == "/api/repository/access":
+                return self.repository_access(self.read_json(4096))
             if self.path == "/api/job/cancel":
                 with self.server.lock:
                     if self.server.job.get("status") != "running":
@@ -381,7 +396,8 @@ class Handler(BaseHTTPRequestHandler):
                 return self.scan_request(self.read_json(8192), save_only=self.path == "/api/projects")
             match = re.fullmatch(r"/api/runs/([0-9]{1,18})/rerun", self.path)
             if match:
-                return self.rerun(int(match[1]))
+                data = self.read_json(4096) if self.headers.get("Content-Length", "0") != "0" else {}
+                return self.rerun(int(match[1]), data.pop("repository_token", ""))
             match = re.fullmatch(r"/api/projects/([0-9]{1,18})/delete", self.path)
             if match:
                 return self.delete_project(int(match[1]))
@@ -401,6 +417,22 @@ class Handler(BaseHTTPRequestHandler):
         finally:
             self.server.picker_lock.release()
         return self.respond(status, result)
+
+    def repository_access(self, data):
+        lock = self.server.repository_access_lock
+        if not lock.acquire(blocking=False):
+            raise RequestError(409, "A repository access check is already running.")
+        try:
+            with tempfile.TemporaryDirectory(prefix="appsec-git-access-") as directory:
+                check_repository_access(data.get("target", ""), data.get("branch", ""), Path(directory),
+                                        allow_sign_in=not self.server.container, token=data.pop("repository_token", ""))
+        except RepositoryError as exc:
+            raise RequestError(400, str(exc)) from None
+        except OSError:
+            raise RequestError(503, "Could not create a temporary workspace to check access.") from None
+        finally:
+            lock.release()
+        return self.respond(200, {"ok": True})
 
     def checked(self, provider, key, model):
         if not self.server.check_lock.acquire(blocking=False):
@@ -485,7 +517,7 @@ class Handler(BaseHTTPRequestHandler):
                 server.job = {"status": "idle"}
         return self.respond(200, {"deleted": project_id, "scans_removed": removed})
 
-    def rerun(self, run_id):
+    def rerun(self, run_id, repository_token=""):
         """Start a new scan with the same project and settings as an earlier run."""
         try:
             run = self.server.history.run(run_id)
@@ -498,20 +530,28 @@ class Handler(BaseHTTPRequestHandler):
         if project["mount"] and not (self.server.container and project["mount"] == mount):
             raise RequestError(400, "This project's repository is not mounted, so it can't be scanned again.")
         settings = run["settings"]
+        if settings.get("repository_token_required") and repository_token == "":
+            raise RequestError(428, "Enter a repository access token to rerun this scan.")
         prefs = self.server.preferences.load()
         default_provider = os.environ.get("AI_PROVIDER", "").strip() or prefs["provider"] or "openai"
         data = {"project_id": project["id"], "name": project["name"], "source": project["source"],
                 "target": project["target"], "branch": project["branch"], "scanner": run["scanner"],
                 "mode": run["mode"], "limit": settings.get("limit", 5),
-                "provider": settings.get("provider") or default_provider, "model": settings.get("model", "")}
+                "provider": settings.get("provider") or default_provider, "model": settings.get("model", ""),
+                "repository_token": repository_token}
         return self.scan_request(data, rerun_of=run_id)
 
     def scan_request(self, data, save_only=False, rerun_of=None):
+        repository_token = data.pop("repository_token", "")
+        if save_only and repository_token != "":
+            return self.respond(400, {"error": "Use repository access tokens when checking access or running a scan."})
         try:
             target, mode, limit = data["target"], data.get("mode", "scan"), data.get("limit", 0)
             scanner = data.get("scanner", "semgrep")
-            if scanner not in ("semgrep", "trivy", "all"):
+            if scanner not in SCAN_CHOICES:
                 raise ValueError()
+            if scanner.startswith("gitleaks-") and mode == "triage":
+                return self.respond(400, {"error": "Secret scans run without AI review."})
             provider, model = data.get("provider", "openai"), data.get("model", "")
             if provider not in PROVIDERS or not isinstance(model, str) or not MODEL_ID.fullmatch(model.strip()):
                 return self.respond(400, {"error": "Choose a supported AI provider and a valid model ID."})
@@ -525,7 +565,9 @@ class Handler(BaseHTTPRequestHandler):
                 raise ValueError()
             if source == "remote":
                 target, branch = validate_remote(target, branch)
+                repository_token = validate_repository_token(target, repository_token)
             elif source == "local":
+                validate_repository_token("", repository_token)
                 target = str(Path(target).resolve(strict=True))
                 if self.server.container and not Path(target).is_relative_to("/workspace"):
                     return self.respond(400, {"error": "Choose /workspace or a folder inside it."})
@@ -558,12 +600,16 @@ class Handler(BaseHTTPRequestHandler):
                 return self.respond(409, {"error": "A scan is already running."})
             try:
                 settings = {"limit": limit, **({"provider": provider, "model": model} if mode == "triage" else {})}
+                if repository_token:
+                    settings["repository_token_required"] = True
                 run_id = self.server.history.start(project, scanner, mode, settings)
                 self.server.cancel.clear()
             except sqlite3.Error:
                 return self.respond(503, {"error": "Could not create a scan history entry."})
             self.server.job = {"status": "running", "mode": mode, "run_id": run_id, "started": time.time(), "now": time.time()}
-        threading.Thread(target=self.server.scan, args=(target, mode, limit, source, branch, scanner, run_id, provider, model), daemon=True).start()
+        scan_auth = {"repository_token": repository_token} if repository_token else {}
+        threading.Thread(target=self.server.scan, args=(target, mode, limit, source, branch, scanner, run_id, provider, model),
+                         kwargs=scan_auth, daemon=True).start()
         self.respond(202, {"status": "running", "project_id": project, "run_id": run_id, "rerun_of": rerun_of,
                            "scan": {"source": source, "scanner": scanner, "mode": mode, "limit": limit,
                                     "provider": provider if mode == "triage" else None, "model": model or None}})

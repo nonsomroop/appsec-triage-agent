@@ -15,8 +15,9 @@ from appsec_triage.scanners.semgrep import SemgrepScanner
 from appsec_triage.services.pipeline import Pipeline
 from appsec_triage.scanners.trivy import TrivyScanner
 from appsec_triage.scanners.combined import CombinedScanner
+from appsec_triage.scanners.gitleaks import GitleaksScanner
 
-SCAN_LABELS = {"semgrep": "Semgrep code scan", "trivy": "Trivy dependency scan"}
+from appsec_triage.scanners.base import SCAN_CHOICES, SCAN_LABELS
 
 
 def stop_on_sigterm(signum, frame):
@@ -34,7 +35,7 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--output", type=Path, help="JSON file; defaults to stdout")
         command.add_argument("--config", type=Path, help="Application TOML configuration")
         command.add_argument("--max-findings", type=int, help="Limit assessments, never scan findings; 0 disables assessment")
-        command.add_argument("--scanner", choices=("semgrep", "trivy", "all"), default="semgrep")
+        command.add_argument("--scanner", choices=SCAN_CHOICES, default="semgrep")
         command.add_argument("--provider", choices=tuple(PROVIDERS), help="AI provider for triage; defaults to AI_PROVIDER or openai")
         command.add_argument("--model", help="Model ID; defaults to the provider's *_MODEL setting")
         command.add_argument("--verbose", action="store_true")
@@ -43,6 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "ui":
         from appsec_triage.web import serve
         return serve(args.port)
+    if args.command == "triage" and args.scanner.startswith("gitleaks-"):
+        parser.error("Use the scan command for Gitleaks. Secret findings stay out of AI review.")
     # Stopping a scan sends SIGTERM. Exit through normal cleanup so scanners started in
     # their own process groups (Semgrep) or by subprocess.run (Trivy) are stopped too.
     if threading.current_thread() is threading.main_thread():
@@ -89,7 +92,9 @@ def main(argv: list[str] | None = None) -> int:
             progress.emit("plan", "plan", steps=[{"id": "triage", "label": f"AI review with {provider.label} ({model})"}])
         logger.info("Starting %s", args.command)
         scanners = {"semgrep": lambda: SemgrepScanner(settings.semgrep_config, settings.scan_timeout),
-                    "trivy": lambda: TrivyScanner(settings.scan_timeout)}
+                    "trivy": lambda: TrivyScanner(settings.scan_timeout),
+                    "gitleaks-files": lambda: GitleaksScanner("files", settings.scan_timeout),
+                    "gitleaks-history": lambda: GitleaksScanner("history", settings.scan_timeout)}
         tracked = [TrackedScanner(scanners[name](), f"scan:{name}", progress) for name in scanner_names]
         scanner = CombinedScanner(tracked) if len(tracked) > 1 else tracked[0]
         report = asyncio.run(Pipeline(scanner, triage, progress).run(args.target, limit))
