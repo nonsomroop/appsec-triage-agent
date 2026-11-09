@@ -226,6 +226,51 @@ container preserves reports. Removing the volume deletes its history.
 Each developer has a local project library. Reports can contain source excerpts.
 Imported JSON remains in the browser. Export a report to share a copy.
 
+### Human review
+
+Every finding (code, dependency or secret) has a **Human review** card next to
+the AI review. Mark it **Confirmed**, **False positive**, **Accepted risk** or
+**Fixed** (keyboard: `c`, `f`, `a`, `x`), and add notes such as evidence or a
+ticket link. Each verdict change is recorded in the finding's discussion as an
+audit trail that can't be deleted; written notes can be.
+
+Reviews belong to the saved project and are keyed by the finding's stable ID, so
+decisions carry over to later scans of the same project. Reports opened from a
+file are read-only.
+
+Human verdicts are kept separate from AI verdicts:
+
+- Each finding shows **Scanner → AI review → Human review** and flags when the
+  reviewer overrode the AI.
+- The **Human review** summary shows the raw scanner count against the count
+  after review (false positives and fixed items removed); click a verdict to
+  filter.
+- **Scanner view** shows every finding, striking through reviewed false
+  positives and fixed items; **Reviewed view** hides them.
+
+### PDF reports
+
+**PDF report** in the top bar downloads a designed PDF of the open scan: a cover
+page, summary tiles, a severity chart, a scanner-versus-review comparison and a
+per-category table, then every finding with its AI and human verdicts, review
+notes, fix and optional code excerpt. Group findings by **category** (code,
+dependencies, secrets), **severity**, **human review** or **file**; each group is
+a bookmark in the PDF's sidebar. You can leave out false positives, review notes
+or code excerpts. With code excerpts the PDF contains source code, so share it
+accordingly.
+
+Saved scans are rendered from the server's copy with their stored reviews.
+
+The report is an A4 portrait document with a title page and document control
+table, contents, numbered sections (executive summary with an overall risk
+rating, scope and methodology, findings overview, detailed findings with IDs
+such as F-001) and a finding index, with running headers and "Page X of Y".
+Text is set in Times New Roman where installed (macOS, Windows); Docker uses
+Liberation Serif, which has the same metrics. Code uses Ubuntu Mono, bundled
+under the Ubuntu Font Licence (`src/appsec_triage/assets/fonts/UFL.txt`).
+Characters a font lacks, such as Thai, fall back to another installed font, and
+tabs and invisible characters in code are normalised so nothing prints as a box.
+
 ### Remote Git repositories
 
 In the scan form, choose **Git repository URL**, paste the clone URL, and

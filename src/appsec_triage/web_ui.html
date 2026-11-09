@@ -68,7 +68,7 @@ h3{font-size:14px}
 .btn svg{width:16px;height:16px;flex:none}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .field>span:first-child,.label{font-size:12px;font-weight:600;color:var(--muted)}
-input[type=text],input[type=password],input[type=number],input:not([type]),select{width:100%;min-width:0;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);font-weight:400}
+textarea,input[type=text],input[type=password],input[type=number],input:not([type]),select{width:100%;min-width:0;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);font-weight:400}
 input:disabled,select:disabled{background:var(--surface-2);color:var(--muted)}
 .help{font-size:12px;color:var(--muted)}
 .help.ok{color:var(--ok)}.help.warn{color:var(--warn)}
@@ -330,7 +330,60 @@ details.advanced>div{margin-top:12px}
 .coverage summary svg{width:16px;height:16px;flex:none;margin-top:2px}
 .coverage[open] summary u{display:none}
 .coverage ul{margin:0;padding:0 14px 12px 40px;display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:12px;color:var(--text);overflow-wrap:anywhere}
-.summary{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;margin-bottom:16px}
+.summary{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:16px}
+/* Human review */
+.badge.h-confirmed{background:var(--err-bg);color:var(--err)}.badge.h-false_positive{background:var(--ok-bg);color:var(--ok)}
+.badge.h-accepted_risk{background:var(--warn-bg);color:var(--warn)}.badge.h-fixed{background:var(--low-bg);color:var(--low)}
+.badge.human{text-transform:none;gap:4px}.badge.human::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.human-diff{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.human-diff>div{display:flex;flex-direction:column}
+.diff-num{font-size:26px;line-height:1.15;font-weight:750;font-variant-numeric:tabular-nums}
+.diff-num.after{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.diff-arrow{font-size:20px;color:var(--accent)}
+.finding.dismissed .finding-title{text-decoration:line-through;color:var(--faint)}
+.finding.dismissed{opacity:.75}
+.view-switch{display:inline-flex;background:var(--surface-3);border-radius:8px;padding:2px;gap:2px}
+.view-switch button{all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.view-switch button[aria-pressed=true]{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow)}
+.view-switch button:focus-visible{outline:2px solid var(--accent)}
+.trio{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:6px;align-items:stretch}
+.trio>.cell{background:var(--surface-2);border-radius:10px;padding:9px 11px;min-width:0}
+.trio>.cell .eyebrow{display:block;margin-bottom:4px}
+.trio>.cell b{display:block;overflow-wrap:anywhere}
+.trio>.to{align-self:center;color:var(--faint)}
+.trio-note{grid-column:1/-1;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text)}
+.trio-note.override{background:var(--err-bg);color:var(--err)}
+.card.human{border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
+.card.human .card-head{background:var(--grad-soft);color:var(--accent-text)}
+.card.human .card-head svg{color:var(--accent-text)}
+.vbuttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.vbtn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;padding:8px 6px;border-radius:10px;border:1.5px solid var(--border);font-size:12.5px;font-weight:600;color:var(--muted);transition:border-color .15s,background .15s,color .15s}
+.vbtn:hover{border-color:var(--border-strong);color:var(--text)}
+.vbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vbtn kbd{display:block;margin:3px auto 0;width:max-content;opacity:.7}
+.vbtn[aria-pressed=true].confirmed{border-color:var(--err);background:var(--err-bg);color:var(--err)}
+.vbtn[aria-pressed=true].false_positive{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.vbtn[aria-pressed=true].accepted_risk{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.vbtn[aria-pressed=true].fixed{border-color:var(--low);background:var(--low-bg);color:var(--low)}
+.reviewer{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.reviewer input{max-width:200px;padding:5px 9px}
+.thread{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
+.comment{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.comment .avatar{width:28px;height:28px;border-radius:8px;font-size:11px;grid-row:auto}
+.comment-head{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--muted)}
+.comment-head b{color:var(--text)}
+.comment-head button{all:unset;cursor:pointer;margin-left:auto;font-size:11.5px;color:var(--faint)}
+.comment-head button:hover{color:var(--err)}
+.comment p{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:2px}
+.comment.event p{font-style:italic;color:var(--muted)}
+.comment.event .avatar{background:var(--surface-3)!important;color:var(--muted)}
+.composer{display:flex;flex-direction:column;gap:8px}
+.composer textarea{min-height:72px;resize:vertical;font:inherit;line-height:1.5}
+.composer-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pdf-options{display:flex;flex-direction:column;gap:12px}
+.pdf-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.check-row{display:flex;gap:9px;align-items:flex-start;font-size:13px;cursor:pointer}
+.check-row input{margin-top:3px;accent-color:var(--accent)}
 .summary .panel{padding:16px 18px}
 .summary-title{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
 .sev-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
@@ -541,6 +594,7 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
     </button>
     <span class="status" id="job-status" role="status"><span class="dot"></span><span class="status-text" id="job-status-text">Ready</span></span>
     <label class="btn" title="Open a saved JSON report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15V3m0 0l-4 4m4-4l4 4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">Open report</span><input class="hidden" type="file" id="upload" accept=".json,application/json"></label>
+    <button class="btn" id="export-pdf" disabled title="Download a PDF report of this scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg><span class="label">PDF report</span></button>
     <button class="btn" id="export" disabled title="Download the full report as JSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">Export</span></button>
   </div>
 </header>
@@ -701,6 +755,15 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
         <div class="stack" id="verdict-bar" role="img" aria-label="AI verdict breakdown"></div>
         <div class="legend" id="verdict-legend"></div>
       </div>
+      <div class="panel" id="human-panel">
+        <div class="summary-title"><h3>Human review</h3><span class="help" id="human-note"></span></div>
+        <div class="human-diff">
+          <div><span class="eyebrow">Scanner</span><b class="diff-num" id="diff-raw">0</b></div>
+          <span class="diff-arrow" aria-hidden="true">→</span>
+          <div><span class="eyebrow">After review</span><b class="diff-num after" id="diff-after">0</b></div>
+        </div>
+        <div class="legend" id="human-legend"></div>
+      </div>
     </div>
 
     <div class="workspace">
@@ -712,15 +775,16 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
         <div class="toolbar" style="padding-top:8px;padding-bottom:8px">
           <select id="severity" aria-label="Severity"><option value="">Any severity</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>info</option><option>unknown</option></select>
           <select id="verdict" aria-label="AI verdict"><option value="">Any AI verdict</option><option value="likely_true_positive">Likely real</option><option value="needs_review">Needs review</option><option value="likely_false_positive">Likely false alarm</option><option value="failed">Review failed</option><option value="unassessed">Not reviewed</option></select>
+          <select id="human" aria-label="Human review"><option value="">Any human review</option><option value="none">Not reviewed</option><option value="confirmed">Confirmed</option><option value="false_positive">False positive</option><option value="accepted_risk">Accepted risk</option><option value="fixed">Fixed</option></select>
           <select id="sort" aria-label="Sort"><option value="severity">Sort: severity</option><option value="verdict">Sort: AI verdict</option><option value="file">Sort: file</option></select>
           <select id="group" aria-label="Group findings"><option value="">No grouping</option><option value="file">Group by file</option><option value="type">Group by type</option><option value="package-rule">Group by package or rule</option></select>
         </div>
-        <div class="list-meta"><span id="count"></span><button type="button" class="btn ghost sm hidden" id="clear-filters">Clear filters</button></div>
+        <div class="list-meta"><span id="count"></span><span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn ghost sm hidden" id="clear-filters">Clear filters</button><span class="view-switch" role="group" aria-label="View"><button type="button" id="view-raw" aria-pressed="true" title="Every scanner finding; reviewed false positives and fixed items are struck through">Scanner view</button><button type="button" id="view-reviewed" aria-pressed="false" title="Hide findings a reviewer marked as false positive or fixed">Reviewed view</button></span></span></div>
         <div class="list" id="list" role="listbox" aria-label="Findings list" tabindex="-1"></div>
       </section>
       <section class="panel detail" id="detail" aria-live="polite"></section>
     </div>
-    <p class="kbd-hint">Shortcuts: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> next/previous finding · <kbd>/</kbd> search</p>
+    <p class="kbd-hint">Shortcuts: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> next/previous finding · <kbd>/</kbd> search · review: <kbd>c</kbd> confirmed, <kbd>f</kbd> false positive, <kbd>a</kbd> accepted risk, <kbd>x</kbd> fixed</p>
     <p class="footnote">AI verdicts are suggestions for a human reviewer. Scanner findings are never removed from the report.</p>
   </div>
 </section>
@@ -753,6 +817,27 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 </main>
 </div>
 </div>
+<dialog class="modal" id="pdf-dialog" aria-labelledby="pdf-title">
+  <div class="modal-body">
+    <div class="modal-icon" style="background:var(--grad-soft);color:var(--accent-text)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></div>
+    <h2 id="pdf-title">PDF report</h2>
+    <p class="muted" id="pdf-sub" style="margin-top:-6px"></p>
+    <div class="pdf-options">
+      <div><span class="label">Group findings by</span>
+        <div class="pdf-groups" role="radiogroup" aria-label="Group findings by" style="margin-top:6px">
+          <label class="choice"><input type="radio" name="pdf-group" value="category" checked><div class="choice-card"><div class="choice-title">Category<span class="check"></span></div><div class="choice-desc">Code, dependencies, secrets</div></div></label>
+          <label class="choice"><input type="radio" name="pdf-group" value="severity"><div class="choice-card"><div class="choice-title">Severity<span class="check"></span></div><div class="choice-desc">Critical first</div></div></label>
+          <label class="choice"><input type="radio" name="pdf-group" value="review"><div class="choice-card"><div class="choice-title">Human review<span class="check"></span></div><div class="choice-desc">Confirmed, accepted, open…</div></div></label>
+          <label class="choice"><input type="radio" name="pdf-group" value="file"><div class="choice-card"><div class="choice-title">File<span class="check"></span></div><div class="choice-desc">One section per file</div></div></label>
+        </div>
+      </div>
+      <label class="check-row"><input type="checkbox" id="pdf-fp" checked><span>Include findings marked as false positive</span></label>
+      <label class="check-row"><input type="checkbox" id="pdf-comments" checked><span>Include review notes and history</span></label>
+      <label class="check-row"><input type="checkbox" id="pdf-code" checked><span>Include source code excerpts <span class="help">(the PDF is then sensitive; share carefully)</span></span></label>
+    </div>
+  </div>
+  <div class="modal-actions"><button type="button" class="btn" id="pdf-cancel">Cancel</button><button type="button" class="btn primary" id="pdf-go">Download PDF</button></div>
+</dialog>
 <dialog class="modal" id="delete-dialog" aria-labelledby="delete-title">
   <div class="modal-body">
     <div class="modal-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></div>
@@ -797,6 +882,8 @@ const token='__TOKEN__';
 const inContainer=__CONTAINER__;
 const SEVERITIES=['critical','high','medium','low','info','unknown'];
 const SEV_COLOR={critical:'var(--crit)',high:'var(--high)',medium:'var(--med)',low:'var(--low)',info:'var(--info)',unknown:'var(--border-strong)'};
+const HUMAN={confirmed:{label:'Confirmed',color:'var(--err)',key:'c'},false_positive:{label:'False positive',color:'var(--ok)',key:'f'},
+  accepted_risk:{label:'Accepted risk',color:'var(--warn)',key:'a'},fixed:{label:'Fixed',color:'var(--low)',key:'x'}};
 const VERDICTS={
   likely_true_positive:{label:'Likely real',cls:'v-tp',color:'var(--err)',order:0},
   needs_review:{label:'Needs review',cls:'v-review',color:'var(--warn)',order:1},
@@ -808,7 +895,7 @@ const SCANNERS={semgrep:'code issues (Semgrep)',trivy:'vulnerable dependencies (
   'gitleaks-files':'secrets in current files (Gitleaks)','gitleaks-history':'secrets in Git history (Gitleaks)'};
 const SCAN_STEPS={semgrep:'Semgrep code scan',trivy:'Trivy dependency scan',
   'gitleaks-files':'Gitleaks current files','gitleaks-history':'Gitleaks Git history'};
-let report=null,selected=null,visible=[],resultType='all',busy=false,projects=[],providers=[],providerInfo={providers:[],default_provider:'openai'},checks={},checking={},projectId=null,viewGeneration=0,timer=null,lastScan=null,toastTimer=null,lastJob=null,clockOffset=0,currentRunId=null,runInfo={},currentView='scan',reportProjectId=null;
+let reviews={},viewMode='raw',report=null,selected=null,visible=[],resultType='all',busy=false,projects=[],providers=[],providerInfo={providers:[],default_provider:'openai'},checks={},checking={},projectId=null,viewGeneration=0,timer=null,lastScan=null,toastTimer=null,lastJob=null,clockOffset=0,currentRunId=null,runInfo={},currentView='scan',reportProjectId=null;
 
 /* ---------- helpers ---------- */
 const el=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined&&value!==null)e.textContent=value;return e};
@@ -883,8 +970,8 @@ function openSettings(name){showView('settings');const card=$('settings-'+name);
 function validate(r){if(!r||r.schema_version!=='1.0'||!r.scan||!Array.isArray(r.scan.findings)||!Array.isArray(r.assessments)||!Array.isArray(r.failed_assessments))throw Error('Choose an AppSec report with schema version 1.0.');const ids=new Set();for(const f of r.scan.findings){if(!f||!['id','rule_id','file_path','severity','message'].every(k=>typeof f[k]==='string')||ids.has(f.id))throw Error('Report contains invalid or duplicate findings.');ids.add(f.id);}for(const a of r.assessments){if(!a||typeof a.finding_id!=='string'||!Array.isArray(a.evidence)||typeof a.verdict!=='string')throw Error('Report contains an invalid assessment.');}for(const a of r.failed_assessments){if(!a||typeof a.finding_id!=='string')throw Error('Report contains an invalid failed assessment.');}return r;}
 function load(r,when){
   validate(r);report=r;selected=null;resultType='all';
-  for(const id of ['search','severity','verdict'])$(id).value='';
-  $('export').disabled=false;$('results-empty').classList.add('hidden');$('results').classList.remove('hidden');
+  for(const id of ['search','severity','verdict','human'])$(id).value='';
+  $('export').disabled=false;$('export-pdf').disabled=false;$('results-empty').classList.add('hidden');$('results').classList.remove('hidden');
   const n=r.scan.findings.length;$('nav-count').textContent=n;$('nav-count').classList.remove('hidden');
   $('report-title').textContent=r.repository?.url||r.scan.target||'Scan report';
   $('report-when').textContent=when||'Latest report';
@@ -919,7 +1006,7 @@ function load(r,when){
   renderSummary();render();
 }
 function clearReport(project=null,hasRuns=false){
-  report=null;reportProjectId=null;selected=null;$('export').disabled=true;$('nav-count').classList.add('hidden');
+  report=null;reportProjectId=null;reviews={};$('export-pdf').disabled=true;selected=null;$('export').disabled=true;$('nav-count').classList.add('hidden');
   $('results').classList.add('hidden');$('results-loading').classList.add('hidden');$('results-empty').classList.remove('hidden');
   setCurrentRun(null);markRun(null);
   $('empty-title').textContent=project?(hasRuns?`No completed scans for ${project.name}`:`No scans for ${project.name} yet`):'No results yet';
@@ -944,7 +1031,7 @@ async function openFile(e){
     showLoading('Opening '+file.name,`Reading ${(file.size/1024).toFixed(0)} KB…`);await nextFrame();
     const data=JSON.parse(await file.text());
     $('loading-sub').textContent=`Checking ${data?.scan?.findings?.length??0} findings…`;await nextFrame();
-    load(data,'Opened from '+file.name);reportProjectId=null;markRun(null);setCurrentRun(null);hideLoading();toast('Report opened');
+    load(data,'Opened from '+file.name);reportProjectId=null;markRun(null);setCurrentRun(null);hideLoading();loadReviews();toast('Report opened');
   }catch(err){hideLoading();toast('Unable to open report: '+err.message,true)}
   finally{e.target.value=''}
 }
@@ -957,6 +1044,22 @@ const failure=f=>report.failed_assessments.find(a=>a.finding_id===f.id);
 const outcome=f=>assessment(f)?.verdict||(failure(f)?'failed':'unassessed');
 const findingType=f=>f.category||(f.scanner==='trivy'?'sca':'sast');
 const findingLabel=f=>({sast:'Code',sca:'Dependency',secret:'Secret'})[findingType(f)]||'Finding';
+const human=f=>reviews[f.id]?.verdict||null;
+const dismissed=f=>['false_positive','fixed'].includes(human(f));
+const humanBadge=v=>badge(HUMAN[v].label,'human h-'+v);
+function agreement(f){
+  const ai=outcome(f),h=human(f);
+  if(findingType(f)!=='sast'||!h||['unassessed','failed'].includes(ai))return null;
+  if(ai==='needs_review')return {text:'AI was unsure; the reviewer decided',override:false};
+  const real=['confirmed','accepted_risk','fixed'].includes(h);
+  return (ai==='likely_true_positive')===real?{text:'Reviewer agrees with the AI',override:false}:{text:'Reviewer overrode the AI',override:true};
+}
+let reviewer='';try{reviewer=localStorage.getItem('appsec.reviewer')||''}catch{}
+async function loadReviews(){
+  const id=reportProjectId;reviews={};
+  if(id!=null){try{const data=await api(`/api/projects/${id}/reviews`);if(reportProjectId===id)reviews=data}catch(e){toast(e.message,true)}}
+  if(report)render();
+}
 function title(f){
   if(findingType(f)==='sca')return `${f.package_name||'Dependency'} · ${f.vulnerability_id||f.rule_id}`;
   const last=f.rule_id.split('.').slice(-1)[0].replaceAll('-',' ').replaceAll('_',' ');
@@ -985,6 +1088,17 @@ function renderSummary(){
     b.onclick=()=>{$('verdict').value=$('verdict').value===key?'':key;render()};legend.append(b);
   }
   if(!legend.children.length)legend.append(el('p','help','No code findings to review.'));
+  // Human review: how the reviewed view differs from the raw scanner result.
+  const hl=$('human-legend');hl.replaceChildren();
+  const after=fs.filter(f=>!dismissed(f)).length,reviewedCount=fs.filter(f=>human(f)).length;
+  $('diff-raw').textContent=fs.length;$('diff-after').textContent=after;
+  $('human-note').textContent=reportProjectId==null?'Saved projects only':`${reviewedCount} of ${fs.length} reviewed`;
+  for(const [key,d] of [...Object.entries(HUMAN),['none',{label:'Not reviewed',color:'var(--border-strong)'}]]){
+    const n=fs.filter(f=>(human(f)||'none')===key).length;if(!n)continue;
+    const b=el('button');b.type='button';const sw=el('i');sw.style.background=d.color;b.append(sw,el('span','',d.label),el('b','',n));
+    b.setAttribute('aria-pressed',String($('human').value===key));
+    b.onclick=()=>{$('human').value=$('human').value===key?'':key;render()};hl.append(b);
+  }
 }
 
 /* ---------- list ---------- */
@@ -1036,16 +1150,19 @@ function groupFindings(findings,mode){
 }
 function render(){
   if(!report)return;renderTabs();renderSummary();
-  const q=$('search').value.trim().toLowerCase(),sev=$('severity').value,ver=$('verdict').value;
+  const q=$('search').value.trim().toLowerCase(),sev=$('severity').value,ver=$('verdict').value,hum=$('human').value;
   const matches=report.scan.findings.filter(f=>(resultType==='all'||findingType(f)===resultType)
+    &&(viewMode==='raw'||!dismissed(f))
+    &&(!hum||(human(f)||'none')===hum)
     &&(!sev||(sev==='info'?['info','unknown'].includes(f.severity):f.severity===sev))
     &&(!ver||outcome(f)===ver)
     &&(!q||[f.rule_id,f.file_path,f.message,f.package_name,f.vulnerability_id,title(f)].join(' ').toLowerCase().includes(q)));
   const groups=groupFindings(sorted(matches),$('group').value);
   visible=groups.flatMap(group=>group.findings);
-  const filtered=Boolean(q||sev||ver||resultType!=='all');
+  const filtered=Boolean(q||sev||ver||hum||resultType!=='all');
   $('clear-filters').classList.toggle('hidden',!filtered);
-  $('count').textContent=filtered?`Showing ${visible.length} of ${report.scan.findings.length}`:`${visible.length} finding${visible.length===1?'':'s'}`;
+  const hiddenByReview=viewMode==='reviewed'?report.scan.findings.filter(dismissed).length:0;
+  $('count').textContent=(filtered?`Showing ${visible.length} of ${report.scan.findings.length}`:`${visible.length} finding${visible.length===1?'':'s'}`)+(hiddenByReview?` · ${hiddenByReview} hidden by review`:'');
   const list=$('list');list.replaceChildren();
   if(!visible.length){
     list.append(el('div','no-results',report.scan.findings.length?'No findings match these filters.':'No findings. Nothing to fix here.'));
@@ -1061,10 +1178,11 @@ function render(){
       container.append(header);list.append(container);
     }
     for(const f of findings){
-      const b=el('button','finding');b.type='button';b.setAttribute('role','option');b.dataset.id=f.id;
+      const b=el('button','finding'+(dismissed(f)?' dismissed':''));b.type='button';b.setAttribute('role','option');b.dataset.id=f.id;
       b.style.setProperty('--sev',SEV_COLOR[f.severity]||'transparent');b.setAttribute('aria-selected',String(selected===f.id));
       const type=findingType(f),top=el('span','finding-top');top.append(sevBadge(f.severity),badge(findingLabel(f),'type'));
       if(type==='sast')top.append(verdictBadge(outcome(f)));
+      if(human(f))top.append(humanBadge(human(f)));
       let location=type==='sca'?`${f.file_path} · ${f.installed_version||''}`:locationOf(f);
       if(type==='secret'&&typeof f.metadata?.commit==='string'&&f.metadata.commit)location+=` · ${f.metadata.commit.slice(0,7)}`;
       b.append(top,el('span','finding-title',title(f)),el('span','finding-loc',location));
@@ -1081,8 +1199,8 @@ function select(id,fromClick){
   if(fromClick&&window.matchMedia('(max-width:1180px)').matches)$('detail').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function step(delta){if(!visible.length)return;const i=visible.findIndex(f=>f.id===selected);const next=visible[Math.min(visible.length-1,Math.max(0,i+delta))];if(next)select(next.id)}
-for(const id of ['search','severity','verdict','sort','group'])$(id).addEventListener('input',render);
-$('clear-filters').onclick=()=>{for(const id of ['search','severity','verdict'])$(id).value='';resultType='all';render()};
+for(const id of ['search','severity','verdict','human','sort','group'])$(id).addEventListener('input',render);
+$('clear-filters').onclick=()=>{for(const id of ['search','severity','verdict','human'])$(id).value='';resultType='all';render()};
 document.addEventListener('keydown',e=>{
   if($('view-results').classList.contains('hidden')||!report||e.metaKey||e.ctrlKey||e.altKey)return;
   const typing=['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName);
@@ -1090,11 +1208,14 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&document.activeElement===$('search')){$('search').blur();return}
   if(typing)return;
   if(e.key==='j'||e.key==='ArrowDown'){e.preventDefault();step(1)}
+  const hk=Object.entries(HUMAN).find(([,d])=>d.key===e.key);
+  if(hk&&selected&&reportProjectId!=null){const f=visible.find(x=>x.id===selected);if(f){e.preventDefault();setHuman(f,human(f)===hk[0]?null:hk[0])}}
   if(e.key==='k'||e.key==='ArrowUp'){e.preventDefault();step(-1)}
 });
 
 /* ---------- detail ---------- */
 const ICON={
+  human:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/><path d="M16 11l2 2 4-4"/></svg>',
   ai:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
   fix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>',
   code:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>',
@@ -1133,7 +1254,7 @@ function details(f){
   const prev=el('button','btn ghost sm','← Prev');prev.type='button';prev.disabled=i<=0;prev.onclick=()=>step(-1);
   const next=el('button','btn ghost sm','Next →');next.type='button';next.disabled=i>=visible.length-1;next.onclick=()=>step(1);
   navBtns.append(prev,next);nav.append(pos,navBtns);
-  const badges=el('div','finding-top');badges.append(sevBadge(f.severity),badge(findingLabel(f),'type'));if(!sca&&!secret)badges.append(verdictBadge(outcome(f)));
+  const badges=el('div','finding-top');badges.append(sevBadge(f.severity),badge(findingLabel(f),'type'));if(!sca&&!secret)badges.append(verdictBadge(outcome(f)));if(human(f))badges.append(humanBadge(human(f)));
   const loc=el('div','loc-row');loc.append(el('span','mono muted',locationOf(f)),copyButton(locationOf(f),'Location'));
   head.append(nav,badges,el('h2','',title(f)),el('div','mono faint',f.rule_id),loc);d.append(head);
 
@@ -1144,6 +1265,7 @@ function details(f){
   else if(secret&&f.metadata?.commit){fact(facts,'Commit',f.metadata.commit)}
   else if(!secret){fact(facts,'AI verdict',VERDICTS[outcome(f)]?.label||outcome(f));if(typeof a?.confidence==='number')fact(facts,'AI confidence',Math.round(a.confidence*100)+'%');fact(facts,'File',f.file_path.split('/').pop())}
   body.append(facts);
+  body.append(trio(f));
 
   // Fix first: what should the developer do?
   const fix=card('How to fix','fix','fix');
@@ -1154,6 +1276,7 @@ function details(f){
   else if(a)block(fix.body,null,a.remediation);
   else fix.body.append(el('p','muted',fail?'The AI review failed, so there is no suggested fix. Use the scanner guidance below.':'Turn on AI review when scanning to get a suggested fix, or follow the scanner guidance below.'));
   body.append(fix.card);
+  if(sca||secret)body.append(humanCard(f));
 
   if(!sca&&!secret){
     const ai=card('AI review','ai');
@@ -1164,7 +1287,7 @@ function details(f){
       ai.body.append(el('div','subhead','Evidence'));const ul=el('ul','evidence');for(const item of a.evidence)ul.append(el('li','',item));if(!a.evidence.length)ul.append(el('li','','No citations provided.'));ai.body.append(ul);
       if(a.model_name)ai.body.append(el('p','help','Reviewed by '+a.model_name));
     }else ai.body.append(el('p','muted',fail?.error||'Not reviewed. Run a scan with AI review turned on to get a verdict.'));
-    body.append(ai.card);
+    body.append(ai.card,humanCard(f));
     const code=card('Affected code','code');
     if(typeof f.source_snippet==='string'&&f.source_snippet){code.body.style.padding='0';code.body.append(sourceCode(f.file_path,f.source_snippet))}
     else code.body.append(el('p','muted',f.source_error||'Source code is not included in this report. Run a new scan to capture it.'));
@@ -1185,6 +1308,90 @@ function details(f){
   body.append(ev.card);
   if(f.cwe?.length){const cl=card('Classification','tag');const links=el('div','links');links.style.display='flex';links.style.flexDirection='column';links.style.gap='4px';for(const c of f.cwe)links.append(cweLink(c));cl.body.append(links);body.append(cl.card)}
 }
+
+/* ---------- human review ---------- */
+function trio(f){
+  const box=el('div','trio');const a=assessment(f),sast=findingType(f)==='sast';
+  const cell=(label,value,color)=>{const c=el('div','cell');const b=el('b','',value);if(color)b.style.color=color;c.append(el('span','eyebrow',label),b);return c};
+  const ai=sast?(VERDICTS[outcome(f)]?.label||outcome(f))+(typeof a?.confidence==='number'?` · ${Math.round(a.confidence*100)}%`:''):'Not applicable';
+  const h=human(f);
+  box.append(cell('Scanner',`${f.severity.charAt(0).toUpperCase()+f.severity.slice(1)} · ${f.scanner}`),el('span','to','→'),
+    cell('AI review',ai,sast?VERDICTS[outcome(f)]?.color:null),el('span','to','→'),
+    cell('Human review',h?HUMAN[h].label+(reviews[f.id]?.reviewer?' · '+reviews[f.id].reviewer:''):'Not reviewed',h?HUMAN[h].color:'var(--faint)'));
+  const note=agreement(f);if(note)box.append(el('div','trio-note'+(note.override?' override':''),(note.override?'⚠ ':'✓ ')+note.text));
+  return box;
+}
+function humanCard(f){
+  const c=card('Human review','human','human');
+  if(reportProjectId==null){c.body.append(el('p','muted','Open this scan from a saved project to record a human review. Reports opened from a file are read-only.'));return c.card}
+  const r=reviews[f.id]||{verdict:null,comments:[]};
+  const buttons=el('div','vbuttons');buttons.setAttribute('role','group');buttons.setAttribute('aria-label','Human verdict');
+  for(const [key,d] of Object.entries(HUMAN)){
+    const b=el('button','vbtn '+key);b.type='button';b.setAttribute('aria-pressed',String(r.verdict===key));
+    b.append(document.createTextNode(d.label),el('kbd','',d.key));b.title=r.verdict===key?'Click again to clear':'Mark as '+d.label;
+    b.onclick=()=>setHuman(f,r.verdict===key?null:key);buttons.append(b);
+  }
+  const who=el('label','reviewer');const name=el('input');name.value=reviewer;name.placeholder='Your name';name.maxLength=80;name.autocomplete='name';
+  name.onchange=()=>{reviewer=name.value.trim();try{localStorage.setItem('appsec.reviewer',reviewer)}catch{}};
+  who.append('Reviewing as',name);
+  c.body.append(buttons,who);
+  if(r.verdict&&r.updated)c.body.append(el('p','help',`${HUMAN[r.verdict].label} by ${r.reviewer||'a reviewer'} · ${new Date(r.updated).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}. Decisions carry over to later scans of this project.`));
+  c.body.append(el('div','subhead',`Discussion${r.comments.length?` (${r.comments.length})`:''}`));
+  const thread=el('ul','thread');
+  for(const m of r.comments){
+    const li=el('li','comment'+(m.kind==='event'?' event':''));
+    const av=el('span','avatar',(m.author||'?').slice(0,2));av.style.setProperty('--av',avatarStyle(m.author||'?'));
+    const main=el('div');const head=el('div','comment-head');head.append(el('b','',m.author||'Reviewer'),el('span','',new Date(m.created).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})));
+    if(m.kind==='comment'){const del=el('button','','Delete');del.type='button';del.onclick=()=>deleteComment(f,m.id);head.append(del)}
+    main.append(head,el('p','',m.body));li.append(av,main);thread.append(li);
+  }
+  if(!r.comments.length)thread.append(el('li','help','No notes yet. Explain why this is or isn’t a real issue so others can trust the decision.'));
+  const composer=el('div','composer');const text=el('textarea');text.placeholder='Add a note: evidence, reasoning, ticket link…';text.maxLength=4000;text.setAttribute('aria-label','Comment');
+  const actions=el('div','composer-actions');const send=el('button','btn primary sm','Add note');send.type='button';
+  send.onclick=()=>addComment(f,text);text.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();send.click()}};
+  actions.append(el('span','help','⌘/Ctrl + Enter to send'),send);composer.append(text,actions);
+  c.body.append(thread,composer);
+  return c.card;
+}
+function refreshAfterReview(f){const scroll=$('detail').scrollTop;render();if(visible.some(x=>x.id===f.id))select(f.id);$('detail').scrollTop=scroll}
+async function setHuman(f,verdict){
+  try{reviews[f.id]=await api(`/api/projects/${reportProjectId}/reviews`,{finding_id:f.id,verdict,reviewer});
+    toast(verdict?`Marked as ${HUMAN[verdict].label}`:'Review cleared');refreshAfterReview(f)}
+  catch(e){toast(e.message,true)}
+}
+async function addComment(f,text){
+  const body=text.value.trim();if(!body){text.focus();return}
+  try{reviews[f.id]=await api(`/api/projects/${reportProjectId}/comments`,{finding_id:f.id,body,author:reviewer});refreshAfterReview(f)}
+  catch(e){toast(e.message,true)}
+}
+async function deleteComment(f,id){
+  if(!confirm('Delete this note?'))return;
+  try{await api(`/api/comments/${id}/delete`,{});reviews[f.id].comments=reviews[f.id].comments.filter(m=>m.id!==id);refreshAfterReview(f)}
+  catch(e){toast(e.message,true)}
+}
+for(const [id,mode] of [['view-raw','raw'],['view-reviewed','reviewed']])$(id).onclick=()=>{
+  viewMode=mode;$('view-raw').setAttribute('aria-pressed',String(mode==='raw'));$('view-reviewed').setAttribute('aria-pressed',String(mode==='reviewed'));render()};
+
+/* ---------- PDF ---------- */
+$('export-pdf').onclick=()=>{
+  if(!report)return;
+  $('pdf-sub').textContent=currentRunId!=null?'A designed report of this scan with AI and human review.':'A designed report of this file. Human reviews are only included for saved scans.';
+  $('pdf-dialog').showModal();
+};
+$('pdf-cancel').onclick=()=>$('pdf-dialog').close();
+$('pdf-go').onclick=async()=>{
+  const go=$('pdf-go');go.disabled=true;go.textContent='Generating…';
+  const options={group:radio('pdf-group'),include_false_positives:$('pdf-fp').checked,include_code:$('pdf-code').checked,include_comments:$('pdf-comments').checked};
+  const body=currentRunId!=null?{run_id:currentRunId,options}:{report,name:$('report-title').textContent,options};
+  try{
+    const response=await fetch('/api/pdf',{method:'POST',headers:{'Content-Type':'application/json','X-Appsec-Token':token},body:JSON.stringify(body)});
+    if(!response.ok){let msg='The PDF could not be generated.';try{msg=(await response.json()).error||msg}catch{};throw Error(msg)}
+    const name=(response.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/)?.[1]||'appsec-report.pdf';
+    const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    $('pdf-dialog').close();toast('PDF downloaded');
+  }catch(e){toast(e.message,true)}
+  finally{go.disabled=false;go.textContent='Download PDF'}
+};
 
 /* ---------- scan form ---------- */
 function coverageDetails(item){
@@ -1470,7 +1677,7 @@ async function openRun(id,{show=true}={}){
     const stored=await api('/api/runs/'+id);if(serial!==viewGeneration)return;
     if(stored.report){
       if(show){$('loading-sub').textContent=`Preparing ${stored.report.scan?.findings?.length??0} findings and ${stored.report.assessments?.length??0} AI reviews…`;await nextFrame()}
-      load(stored.report,label);reportProjectId=projectId;markRun(id);setCurrentRun(id);hideLoading();
+      load(stored.report,label);reportProjectId=projectId;markRun(id);setCurrentRun(id);hideLoading();loadReviews();
     }else{hideLoading();toast(stored.error||'This scan is still running.',Boolean(stored.error))}
   }catch(e){hideLoading();toast(e.message,true)}
   finally{button?.classList.remove('loading')}
@@ -1630,7 +1837,7 @@ async function poll(initial=false){
     if(job.status==='running'){lastJob=job;running(true,job.phase);renderProgress('running',job);setTimeout(poll,1000);return}
     const wasRunning=busy;running(false);
     if(job.project_id!=null&&(wasRunning||initial))await refreshProjects(job.project_id);
-    if(job.report){load(job.report,wasRunning?'Just now':'Most recent scan');reportProjectId=job.project_id??null;setCurrentRun(job.run_id??null);markRun(job.run_id)}
+    if(job.report){load(job.report,wasRunning?'Just now':'Most recent scan');reportProjectId=job.project_id??null;setCurrentRun(job.run_id??null);markRun(job.run_id);loadReviews()}
     if(wasRunning){
       lastJob=job;
       if(job.report){renderProgress('done',job);toast('Scan complete')}

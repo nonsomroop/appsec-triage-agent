@@ -9,7 +9,7 @@ description = "Scanner-first application security triage with optional LLM asses
 readme = "README.md"
 requires-python = ">=3.11"
 license = "MIT"
-dependencies = ["pydantic>=2.12,<3", "openai-agents>=0.24,<1", "anthropic>=2.6,<3", "google-genai>=3,<4", "keyring>=25,<26", "semgrep>=1.140,<2"]
+dependencies = ["pydantic>=2.12,<3", "openai-agents>=0.24,<1", "anthropic>=2.6,<3", "google-genai>=3,<4", "keyring>=25,<26", "reportlab>=4.2,<6", "semgrep>=1.140,<2"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8,<10"]
@@ -21,7 +21,7 @@ appsec-triage = "appsec_triage.cli:main"
 where = ["src"]
 
 [tool.setuptools.package-data]
-appsec_triage = ["web_ui.html", "assets/highlight.min.js"]
+appsec_triage = ["web_ui.html", "assets/highlight.min.js", "assets/fonts/*.ttf", "assets/fonts/UFL.txt"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
