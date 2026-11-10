@@ -403,7 +403,7 @@ def test_rerun_repeats_saved_settings(monkeypatch, tmp_path):
         status, body = request(server, "POST", f"/api/runs/{first['run_id']}/rerun", "{}", headers)
         rerun = json.loads(body)
         assert status == 202 and rerun["rerun_of"] == first["run_id"] and rerun["run_id"] != first["run_id"]
-        assert rerun["scan"] == {"source": "local", "scanner": "all", "mode": "triage", "limit": 7,
+        assert rerun["scan"] == {"source": "local", "scanner": "semgrep+trivy", "mode": "triage", "limit": 7,
                                  "provider": "anthropic", "model": "claude-sonnet-5-5"}
         assert calls[0] == calls[1][:6] + (first["run_id"],) + calls[1][7:]
         assert request(server, "POST", f"/api/runs/{rerun['run_id']}/rerun", "{}", headers)[0] == 409
@@ -582,3 +582,83 @@ def test_cannot_delete_project_while_it_scans(monkeypatch, tmp_path):
         status, body = request(server, "POST", f"/api/projects/{project}/delete", "{}", headers)
         assert status == 409 and "Stop the scan" in body
         server.job = {"status": "idle"}
+
+
+def test_human_review_and_comments(tmp_path):
+    with running_server() as server:
+        headers = {"X-Appsec-Token": server.token}
+        project = server.history.project("Reviewed", "local", str(tmp_path), "", "")
+        url = f"/api/projects/{project}/reviews"
+        post = lambda path, data, h=headers: request(server, "POST", path, json.dumps(data), h)
+        assert post(url, {"finding_id": "abc", "verdict": "false_positive"}, {})[0] == 403
+        status, body = post(url, {"finding_id": "abc", "verdict": "false_positive", "reviewer": "Nao"})
+        thread = json.loads(body)
+        assert status == 200 and thread["verdict"] == "false_positive" and thread["comments"][0]["kind"] == "event"
+        status, body = post(f"/api/projects/{project}/comments",
+                            {"finding_id": "abc", "body": "Only <b>test</b> data", "author": "Nao"})
+        comment = json.loads(body)["comments"][-1]
+        assert status == 200 and comment["body"] == "Only <b>test</b> data" and comment["kind"] == "comment"
+        assert post(url, {"finding_id": "abc", "verdict": "safe"})[0] == 400
+        assert post(url, {"finding_id": "../etc", "verdict": "fixed"})[0] == 400
+        assert post(f"/api/projects/{project}/comments", {"finding_id": "abc", "body": " "})[0] == 400
+        assert post(url, {"finding_id": "abc", "verdict": "fixed", "reviewer": "x" * 81})[0] == 400
+        assert post("/api/projects/999/reviews", {"finding_id": "abc", "verdict": "fixed"})[0] == 404
+        reviews = json.loads(request(server, "GET", url, headers=headers)[1])
+        assert reviews["abc"]["verdict"] == "false_positive" and len(reviews["abc"]["comments"]) == 2
+        event = reviews["abc"]["comments"][0]["id"]
+        assert post(f"/api/comments/{event}/delete", {})[0] == 404  # audit events stay
+        assert post(f"/api/comments/{comment['id']}/delete", {})[0] == 200
+        post(url, {"finding_id": "abc", "verdict": None, "reviewer": "Nao"})
+        thread = json.loads(request(server, "GET", url, headers=headers)[1])["abc"]
+        assert thread["verdict"] is None and [c["body"] for c in thread["comments"]] == [
+            "Marked as False positive", "Cleared the review (was False positive)"]
+        assert request(server, "POST", f"/api/projects/{project}/delete", "{}", headers)[0] == 200
+        assert server.history.reviews(project) == {}
+
+
+def test_pdf_for_saved_scan_and_uploaded_report(tmp_path):
+    from appsec_triage.models.finding import Finding
+    from appsec_triage.models.scan import Scan
+    from appsec_triage.reporting.json_reporter import Report
+    finding = Finding(id="f1", scanner="semgrep", rule_id="python.sql.<injection>", title="t", severity="high",
+                      message="Unsafe <script>x</script> & query", file_path="app.py", start_line=1, end_line=1,
+                      source_snippet="q = 'SELECT ' + name  # ทดสอบ")
+    report = json.loads(Report(scan=Scan(target=str(tmp_path), scanner="semgrep", status="completed",
+                                         findings=[finding])).model_dump_json())
+    with running_server() as server:
+        headers = {"X-Appsec-Token": server.token}
+        project = server.history.project("PDF project", "local", str(tmp_path), "", "")
+        run = server.history.start(project, "semgrep", "scan", {"limit": 0})
+        server.history.finish(run, {"status": "completed", "report": report}, None)
+        server.history.set_review(project, "f1", "confirmed", "Nao")
+        connection = HTTPConnection("127.0.0.1", server.server_port, timeout=30)
+        for body in ({"run_id": run, "options": {"group": "review"}}, {"report": report, "name": "Upload"}):
+            connection.request("POST", "/api/pdf", json.dumps(body), {**headers, "Content-Type": "application/json"})
+            response = connection.getresponse()
+            data = response.read()
+            assert response.status == 200 and data.startswith(b"%PDF")
+            assert response.getheader("Content-Type") == "application/pdf"
+            assert response.getheader("Content-Disposition").startswith('attachment; filename="appsec-')
+        connection.close()
+        bad = [({"run_id": run, "options": {"group": "colour"}}, 400), ({"run_id": "1"}, 400),
+               ({"run_id": 999}, 404), ({"report": {"scan": "nope"}}, 400)]
+        for body, status in bad:
+            assert request(server, "POST", "/api/pdf", json.dumps(body), headers)[0] == status
+        assert request(server, "POST", "/api/pdf", json.dumps({"run_id": run}))[0] == 403
+
+
+def test_scanner_combinations(monkeypatch):
+    calls = []
+    monkeypatch.setattr(LocalServer, "scan", lambda self, *args, **kwargs: calls.append(args))
+    with running_server() as server:
+        headers = {"X-Appsec-Token": server.token}
+        base = {"target": str(Path.cwd()), "mode": "scan", "limit": 0}
+        for scanner, status in [("gitleaks-files+semgrep+trivy", 202), ("semgrep+semgrep", 400),
+                                ("gitleaks-files+gitleaks-history", 400), ("", 400), ("semgrep+nmap", 400)]:
+            server.job = {"status": "idle"}
+            assert request(server, "POST", "/api/scan", json.dumps({**base, "scanner": scanner}), headers)[0] == status, scanner
+        assert calls[0][5] == "semgrep+trivy+gitleaks-files"
+        server.job = {"status": "idle"}
+        triage = {**base, "mode": "triage", "scanner": "trivy+gitleaks-files"}
+        status, body = request(server, "POST", "/api/scan", json.dumps(triage), headers)
+        assert status == 400 and "code (SAST)" in body

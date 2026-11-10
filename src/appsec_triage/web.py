@@ -15,12 +15,16 @@ from collections import deque
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
+from pydantic import ValidationError
+
 from appsec_triage.repositories import (
     RepositoryError, check_repository_access, clone_repository, validate_remote, validate_repository_token,
 )
-from appsec_triage.scanners.base import SCAN_CHOICES
+from appsec_triage.scanners.base import parse_scanners, scanner_spec
 from appsec_triage.folder_picker import FolderPickerError, choose_folder
-from appsec_triage.history import History
+from appsec_triage.history import REVIEW_VERDICTS, History
+from appsec_triage.reporting.json_reporter import Report
+from appsec_triage.reporting.pdf_report import GROUPINGS, build_pdf
 from appsec_triage.progress import ProgressState
 from appsec_triage.secrets_store import KEY_FORMAT, KeyStore, Preferences, data_dir, env_key, resolve_key
 from appsec_triage.services.key_check import KeyCheck, run_check
@@ -29,6 +33,7 @@ from appsec_triage.services.providers import PROVIDERS
 # Empty means the provider default; a leading letter/digit keeps it from parsing as a CLI flag.
 MODEL_ID = re.compile(r"|[A-Za-z0-9][A-Za-z0-9._:/@-]{0,199}")
 CHECKS_PER_MINUTE = 12
+FINDING_ID = re.compile(r"[A-Za-z0-9._:-]{1,128}")
 CSP = ("default-src 'none'; script-src 'nonce-{nonce}'; style-src 'self' 'unsafe-inline'; "
        "img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; "
        "form-action 'none'; object-src 'none'")
@@ -112,6 +117,7 @@ class LocalServer(ThreadingHTTPServer):
         self.picker_lock = threading.Lock()
         self.repository_access_lock = threading.Lock()
         self.check_lock = threading.Lock()
+        self.pdf_lock = threading.Lock()
         self.check_times = deque()
         self.job = {"status": "idle"}
         self.cancel = threading.Event()
@@ -200,7 +206,7 @@ class LocalServer(ThreadingHTTPServer):
                              "detail": target if source == "remote" else None})
                 self.publish(state, started)
                 if source == "remote":
-                    clone_options = {"full_history": True} if scanner == "gitleaks-history" else {}
+                    clone_options = {"full_history": True} if "gitleaks-history" in parse_scanners(scanner) else {}
                     if repository_token:
                         clone_options["token"] = repository_token
                     scan_target = str(clone_repository(target, branch, Path(directory), **clone_options))
@@ -275,10 +281,13 @@ class Handler(BaseHTTPRequestHandler):
     def log_message(self, *args):
         pass
 
-    def respond(self, status, payload, content_type="application/json", nonce=None):
-        body = payload.encode() if isinstance(payload, str) else json.dumps(payload).encode()
+    def respond(self, status, payload, content_type="application/json", nonce=None, headers=None):
+        body = payload if isinstance(payload, bytes) else payload.encode() if isinstance(payload, str) \
+            else json.dumps(payload).encode()
         self.send_response(status)
         self.send_header("Content-Type", content_type)
+        for name, value in (headers or {}).items():
+            self.send_header(name, value)
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
         self.send_header("X-Content-Type-Options", "nosniff")
@@ -368,10 +377,16 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r"/api/projects/([0-9]{1,18})/runs", self.path)
             if match:
                 return self.respond(200, self.server.history.runs(int(match[1])))
+            match = re.fullmatch(r"/api/projects/([0-9]{1,18})/reviews", self.path)
+            if match:
+                self.project_or_404(int(match[1]))
+                return self.respond(200, self.server.history.reviews(int(match[1])))
             match = re.fullmatch(r"/api/runs/([0-9]{1,18})", self.path)
             if match:
                 result = self.server.history.result(int(match[1]))
                 return self.respond(200, result) if result else self.respond(404, {"error": "Unknown scan"})
+        except RequestError as exc:
+            return self.respond(exc.status, {"error": str(exc)})
         except sqlite3.Error:
             return self.respond(503, {"error": "Scan history is unavailable."})
         self.respond(404, {"error": "Not found"})
@@ -401,6 +416,14 @@ class Handler(BaseHTTPRequestHandler):
             match = re.fullmatch(r"/api/projects/([0-9]{1,18})/delete", self.path)
             if match:
                 return self.delete_project(int(match[1]))
+            match = re.fullmatch(r"/api/projects/([0-9]{1,18})/(reviews|comments)", self.path)
+            if match:
+                return self.review(int(match[1]), match[2], self.read_json(8192))
+            match = re.fullmatch(r"/api/comments/([0-9]{1,18})/delete", self.path)
+            if match:
+                return self.delete_comment(int(match[1]))
+            if self.path == "/api/pdf":
+                return self.pdf(self.read_json(25 * 1024 * 1024))
             raise RequestError(404, "Not found")
         except RequestError as exc:
             return self.respond(exc.status, {"error": str(exc)})
@@ -498,6 +521,95 @@ class Handler(BaseHTTPRequestHandler):
             # Keychain and file errors can include paths or item names; keep the message generic.
             raise RequestError(503, "Could not update the key store. Unlock your keychain or check data folder permissions.")
 
+    def project_or_404(self, project_id):
+        try:
+            project = next((p for p in self.server.history.projects() if p["id"] == project_id), None)
+        except sqlite3.Error:
+            raise RequestError(503, "Scan history is unavailable.") from None
+        if not project:
+            raise RequestError(404, "Unknown project")
+        return project
+
+    @staticmethod
+    def person(value):
+        if value is None:
+            return ""
+        if not isinstance(value, str) or len(value) > 80 or not value.strip().isprintable():
+            raise RequestError(400, "Names may be up to 80 printable characters.")
+        return value.strip()
+
+    def review(self, project_id, kind, data):
+        """Record a human verdict or comment. Human review is stored apart from AI verdicts."""
+        self.project_or_404(project_id)
+        finding = data.get("finding_id")
+        if not isinstance(finding, str) or not FINDING_ID.fullmatch(finding):
+            raise RequestError(400, "Unknown finding.")
+        history = self.server.history
+        try:
+            if kind == "reviews":
+                verdict = data.get("verdict")
+                if verdict is not None and verdict not in REVIEW_VERDICTS:
+                    raise RequestError(400, "Choose Confirmed, False positive, Accepted risk or Fixed.")
+                history.set_review(project_id, finding, verdict, self.person(data.get("reviewer")))
+            else:
+                body = data.get("body")
+                if not isinstance(body, str) or not body.strip() or len(body) > 4000:
+                    raise RequestError(400, "Comments must be between 1 and 4,000 characters.")
+                history.add_comment(project_id, finding, self.person(data.get("author")), body.strip())
+            return self.respond(200, history.reviews(project_id).get(finding) or
+                                {"verdict": None, "reviewer": "", "updated": None, "comments": []})
+        except sqlite3.Error:
+            raise RequestError(503, "Could not save the review.") from None
+
+    def delete_comment(self, comment_id):
+        try:
+            project = self.server.history.delete_comment(comment_id)
+        except sqlite3.Error:
+            raise RequestError(503, "Could not delete the comment.") from None
+        if project is None:
+            raise RequestError(404, "Unknown comment, or it is a review event that can't be deleted.")
+        return self.respond(200, {"deleted": comment_id})
+
+    def pdf(self, data):
+        """Render one scan as a PDF. Saved scans use the server's copy and stored human reviews."""
+        options = data.get("options") or {}
+        if not isinstance(options, dict) or options.get("group", "category") not in GROUPINGS or any(
+                not isinstance(options.get(key, True), bool)
+                for key in ("include_false_positives", "include_code", "include_comments")):
+            raise RequestError(400, "Invalid PDF options.")
+        run_id, name, reviews, meta = data.get("run_id"), "report", {}, {}
+        try:
+            if run_id is not None:
+                if type(run_id) is not int:
+                    raise RequestError(400, "Invalid scan.")
+                run, result = self.server.history.run(run_id), self.server.history.result(run_id)
+                if not run or not result or not result.get("report"):
+                    raise RequestError(404, "This scan has no saved report.")
+                project = self.project_or_404(run["project_id"])
+                report, reviews = result["report"], self.server.history.reviews(project["id"])
+                name = project["name"]
+                meta = {"project": project["name"], "branch": project["branch"]}
+            else:
+                report = json.loads(Report.model_validate(data.get("report")).model_dump_json())
+                name = str(data.get("name") or "report")[:80]
+                meta = {"project": name}
+        except sqlite3.Error:
+            raise RequestError(503, "Scan history is unavailable.") from None
+        except ValidationError:
+            raise RequestError(400, "This report can't be converted to PDF because it is not a valid AppSec report.") from None
+        if not self.server.pdf_lock.acquire(blocking=False):
+            raise RequestError(429, "Another PDF is being generated. Try again in a moment.")
+        try:
+            document = build_pdf(report, reviews, meta, options)
+        except Exception:
+            raise RequestError(500, "The PDF could not be generated.") from None
+        finally:
+            self.server.pdf_lock.release()
+        stamp = time.strftime("%Y%m%d-%H%M")
+        filename = f"appsec-{re.sub(r'[^A-Za-z0-9._-]+', '-', name).strip('-')[:60] or 'report'}-{stamp}.pdf"
+        return self.respond(200, document, "application/pdf",
+                            headers={"Content-Disposition": f'attachment; filename="{filename}"'})
+
     def delete_project(self, project_id):
         """Remove a project and its saved scan results. Source code is never touched."""
         server = self.server
@@ -548,10 +660,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             target, mode, limit = data["target"], data.get("mode", "scan"), data.get("limit", 0)
             scanner = data.get("scanner", "semgrep")
-            if scanner not in SCAN_CHOICES:
-                raise ValueError()
-            if scanner.startswith("gitleaks-") and mode == "triage":
-                return self.respond(400, {"error": "Secret scans run without AI review."})
+            try:
+                scanner = scanner_spec(scanner)
+            except (ValueError, AttributeError):
+                return self.respond(400, {"error": "Choose at least one valid scanner."})
+            if mode == "triage" and "semgrep" not in parse_scanners(scanner):
+                return self.respond(400, {"error": "AI review needs a code (SAST) scan. Secret findings are never sent to AI."})
             provider, model = data.get("provider", "openai"), data.get("model", "")
             if provider not in PROVIDERS or not isinstance(model, str) or not MODEL_ID.fullmatch(model.strip()):
                 return self.respond(400, {"error": "Choose a supported AI provider and a valid model ID."})

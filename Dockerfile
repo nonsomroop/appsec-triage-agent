@@ -2,7 +2,9 @@ FROM aquasec/trivy:0.76.0 AS trivy
 FROM ghcr.io/gitleaks/gitleaks:v8.30.1 AS gitleaks
 FROM python:3.12-slim-bookworm
 
-RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates \
+# PDF reports: Liberation Serif/Sans stand in for Times New Roman/Arial (same metrics), DejaVu Sans Mono
+# is the code font, and Loma adds Thai.
+RUN apt-get update && apt-get install -y --no-install-recommends git ca-certificates fonts-liberation fonts-dejavu-core fonts-tlwg-loma-ttf \
     && rm -rf /var/lib/apt/lists/*
 COPY --from=trivy /usr/local/bin/trivy /usr/local/bin/trivy
 COPY --from=gitleaks /usr/bin/gitleaks /usr/local/bin/gitleaks

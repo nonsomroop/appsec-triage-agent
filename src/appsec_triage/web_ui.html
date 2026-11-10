@@ -68,7 +68,7 @@ h3{font-size:14px}
 .btn svg{width:16px;height:16px;flex:none}
 .field{display:flex;flex-direction:column;gap:6px;min-width:0}
 .field>span:first-child,.label{font-size:12px;font-weight:600;color:var(--muted)}
-input[type=text],input[type=password],input[type=number],input:not([type]),select{width:100%;min-width:0;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);font-weight:400}
+textarea,input[type=text],input[type=password],input[type=number],input:not([type]),select{width:100%;min-width:0;padding:9px 11px;border:1px solid var(--border-strong);border-radius:var(--radius-sm);background:var(--surface);font-weight:400}
 input:disabled,select:disabled{background:var(--surface-2);color:var(--muted)}
 .help{font-size:12px;color:var(--muted)}
 .help.ok{color:var(--ok)}.help.warn{color:var(--warn)}
@@ -138,6 +138,24 @@ input:disabled,select:disabled{background:var(--surface-2);color:var(--muted)}
 .side-foot .dot{color:var(--ok);box-shadow:0 0 8px color-mix(in srgb,var(--ok) 60%,transparent)}
 /* Sidebar items keep their size; the sidebar scrolls when there are many projects. */
 .sidebar>*{flex-shrink:0}
+/* The project list scrolls on its own so navigation and the footer stay put. */
+.sidebar{overflow:hidden}
+.sidebar>.projects-section{flex:1 1 auto;min-height:0}
+.projects-section .project-list{flex:1 1 auto;min-height:0;overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin;margin:0 -4px;padding:0 4px}
+.project-search input{padding:6px 10px;font-size:13px;border-radius:9px}
+/* Scan history lives in the top bar as a dropdown. */
+.history-picker{position:relative;margin-left:8px}
+.history-picker .btn svg{width:15px;height:15px}
+.history-picker .btn[aria-expanded=true]{border-color:var(--accent);color:var(--accent-text)}
+.history-count{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--surface-3);color:var(--muted);font-size:11px;font-weight:700;display:inline-grid;place-items:center}
+.history-pop{position:absolute;top:calc(100% + 8px);left:0;z-index:40;width:min(380px,calc(100vw - 32px));max-height:min(70vh,520px);overflow:auto;
+  background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:8px}
+.history-pop-head{display:flex;flex-direction:column;gap:2px;padding:6px 8px 10px;border-bottom:1px solid var(--border);margin-bottom:6px}
+.history-pop .run{color:var(--text)}
+.history-pop .run:hover{background:var(--surface-2)}
+.history-pop .run[aria-current=true]{background:var(--accent-soft)}
+.history-pop .run-meta,.history-pop .side-empty{color:var(--muted)}
+.history-pop .run.completed .dot{color:var(--ok)}
 .project-row{display:flex;align-items:center;gap:2px;position:relative}
 .project-row .project{flex:1;min-width:0}
 .proj-del{all:unset;box-sizing:border-box;cursor:pointer;width:30px;height:30px;display:grid;place-items:center;border-radius:9px;color:var(--side-muted);opacity:0;transition:opacity .15s,background .15s,color .15s;flex:none}
@@ -155,7 +173,7 @@ input:disabled,select:disabled{background:var(--surface-2);color:var(--muted)}
 /* Collapsed rail */
 .app.collapsed .sidebar{padding:18px 10px;align-items:stretch}
 .app.collapsed .brand-text,.app.collapsed .nav-label,.app.collapsed .side-head,.app.collapsed .project-name,.app.collapsed .project-target,
-.app.collapsed #history-wrap,.app.collapsed .side-foot span:last-child,.app.collapsed .nav .count,.app.collapsed .side-empty{display:none}
+.app.collapsed .project-search,.app.collapsed .side-foot span:last-child,.app.collapsed .nav .count,.app.collapsed .side-empty{display:none}
 .app.collapsed .side-top{flex-direction:column;gap:10px;align-items:center}
 .app.collapsed .nav button{width:44px;height:44px;margin:0 auto;justify-content:center;padding:0}
 .app.collapsed .nav button[aria-current=page]::before{left:-10px}
@@ -330,7 +348,122 @@ details.advanced>div{margin-top:12px}
 .coverage summary svg{width:16px;height:16px;flex:none;margin-top:2px}
 .coverage[open] summary u{display:none}
 .coverage ul{margin:0;padding:0 14px 12px 40px;display:flex;flex-direction:column;gap:4px;font-family:var(--mono);font-size:12px;color:var(--text);overflow-wrap:anywhere}
-.summary{display:grid;grid-template-columns:minmax(0,1.35fr) minmax(0,1fr);gap:14px;margin-bottom:16px}
+.summary{display:grid;grid-template-columns:minmax(0,1.3fr) minmax(0,1fr) minmax(0,1fr);gap:14px;margin-bottom:16px}
+/* ---------- decluttered results layout ---------- */
+.report-head{align-items:flex-start}
+.report-actions{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.report-notes{display:flex;flex-wrap:wrap;gap:8px;margin:-6px 0 16px}
+.report-notes:not(:has(details:not(.hidden))){display:none}
+.report-notes .coverage{margin:0;background:none;border:0;flex:0 1 auto}
+.report-notes .coverage[open]{flex-basis:100%}
+.report-notes .coverage summary{display:inline-flex;gap:8px;align-items:center;padding:4px 11px;border-radius:999px;border:1px solid var(--border);background:var(--surface);font-size:12px;color:var(--muted)}
+.report-notes .coverage summary b{color:var(--text);font-weight:600}
+.report-notes .coverage summary svg{margin:0;width:14px;height:14px;color:var(--low)}
+.report-notes .coverage[open] summary{border-color:var(--accent);color:var(--accent-text)}
+.report-notes .coverage[open]>ul,.report-notes .coverage[open]>div{margin-top:8px;padding:12px 16px 12px 30px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface)}
+.summary-strip{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr) minmax(0,1fr);margin-bottom:16px;padding:0}
+.strip-col{padding:14px 18px;min-width:0;display:flex;flex-direction:column;gap:9px}
+.strip-col+.strip-col{border-left:1px solid var(--border)}
+.strip-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.strip-head h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.summary-strip .sev-cards{gap:6px}
+.summary-strip .sev-card{padding:6px 8px;gap:0}
+.summary-strip .sev-card strong{font-size:18px}
+.summary-strip .sev-card span{font-size:11px}
+.summary-strip .stack{margin:2px 0 0;height:6px}
+.legend.compact{flex-direction:row;flex-wrap:wrap;gap:2px 4px}
+.legend.compact button{padding:2px 6px;font-size:12px;gap:6px}
+.legend.compact b{margin-left:2px}
+.summary-strip .human-diff{margin:0;gap:8px;align-items:baseline;display:flex}
+.summary-strip .diff-num{font-size:20px}
+.summary-strip .diff-arrow{font-size:15px}
+.filter-toggle{flex:none}
+.btn .label{color:inherit;font-size:inherit;font-weight:inherit}  /* button text, not a form label */
+.filter-toggle[aria-expanded=true]{border-color:var(--accent);color:var(--accent-text)}
+.filter-count{min-width:18px;height:18px;padding:0 5px;border-radius:999px;background:var(--accent);color:#fff;font-size:11px;font-weight:700;display:inline-grid;place-items:center}
+.filter-panel{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;padding:12px;border-bottom:1px solid var(--border);background:var(--surface-2)}
+.filter-panel .field>span:first-child{font-size:11px}
+.filter-panel select{padding:7px 9px;font-size:13px}
+/* Detail: flat sections, boxes only where they help */
+.detail-body{gap:4px}
+.detail-body>.trio{margin-bottom:12px}
+.detail-body>.card{border:0;border-radius:0;border-top:1px solid var(--border);overflow:visible;background:none}
+.detail-body>.card>.card-head{background:none;border:0;padding:14px 0 8px}
+.detail-body>.card>.card-head h3{font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);gap:7px}
+.detail-body>.card>.card-head svg{width:14px;height:14px}
+.detail-body>.card>.card-body{padding:0 0 14px}
+.detail-body>.card.fix{border:1px solid color-mix(in srgb,var(--ok) 30%,var(--border));border-radius:var(--radius-sm);background:color-mix(in srgb,var(--ok-bg) 55%,transparent);margin-bottom:12px}
+.detail-body>.card.fix>.card-head,.detail-body>.card.fix>.card-body{padding-left:14px;padding-right:14px}
+.detail-body>.card.fix>.card-head h3{color:var(--ok)}
+.detail-body>.card.fix>.card-head svg{color:var(--ok)}
+.detail-body>.card.fix+.card{border-top:0}
+.detail-body>.card.human{border:1px solid color-mix(in srgb,var(--accent) 25%,var(--border));border-radius:var(--radius-sm);background:color-mix(in srgb,var(--accent-soft) 40%,transparent);margin:6px 0 12px}
+.detail-body>.card.human>.card-head,.detail-body>.card.human>.card-body{padding-left:14px;padding-right:14px}
+.detail-body>.card.human>.card-head h3{color:var(--accent-text)}
+.detail-body>.card.human>.card-head{padding-bottom:12px}
+.detail-body>.card.human>.card-body{gap:14px;padding-top:16px}
+.detail-body>.card.human+.card{border-top:0}
+.detail-body>.card .code{border:1px solid var(--border);border-radius:var(--radius-sm)}
+.kbd-hint{margin-top:14px}
+@media(max-width:1180px){.summary-strip{grid-template-columns:1fr}.strip-col+.strip-col{border-left:0;border-top:1px solid var(--border)}}
+/* Human review */
+.badge.h-confirmed{background:var(--err-bg);color:var(--err)}.badge.h-false_positive{background:var(--ok-bg);color:var(--ok)}
+.badge.h-accepted_risk{background:var(--warn-bg);color:var(--warn)}.badge.h-fixed{background:var(--low-bg);color:var(--low)}
+.badge.human{text-transform:none;gap:4px}.badge.human::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.human-diff{display:flex;align-items:center;gap:14px;margin-bottom:10px}
+.human-diff>div{display:flex;flex-direction:column}
+.diff-num{font-size:26px;line-height:1.15;font-weight:750;font-variant-numeric:tabular-nums}
+.diff-num.after{background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent}
+.diff-arrow{font-size:20px;color:var(--accent)}
+.finding.dismissed .finding-title{text-decoration:line-through;color:var(--faint)}
+.finding.dismissed{opacity:.75}
+.view-switch{display:inline-flex;background:var(--surface-3);border-radius:8px;padding:2px;gap:2px}
+.view-switch button{all:unset;cursor:pointer;padding:3px 9px;border-radius:6px;font-size:12px;font-weight:600;color:var(--muted)}
+.view-switch button[aria-pressed=true]{background:var(--surface);color:var(--accent-text);box-shadow:var(--shadow)}
+.view-switch button:focus-visible{outline:2px solid var(--accent)}
+.trio{display:grid;grid-template-columns:1fr auto 1fr auto 1fr;gap:6px;align-items:stretch}
+.trio>.cell{background:var(--surface-2);border-radius:10px;padding:9px 11px;min-width:0}
+.trio>.cell .eyebrow{display:block;margin-bottom:4px}
+.trio>.cell b{display:block;overflow-wrap:anywhere}
+.trio>.to{align-self:center;color:var(--faint)}
+.trio-note{grid-column:1/-1;font-size:12px;font-weight:600;padding:6px 10px;border-radius:8px;background:var(--accent-soft);color:var(--accent-text)}
+.trio-note.override{background:var(--err-bg);color:var(--err)}
+.card.human{border-color:color-mix(in srgb,var(--accent) 35%,var(--border))}
+.card.human .card-head{background:var(--grad-soft);color:var(--accent-text)}
+.card.human .card-head svg{color:var(--accent-text)}
+.vbuttons{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.vbtn{all:unset;box-sizing:border-box;cursor:pointer;text-align:center;padding:8px 6px;border-radius:10px;border:1.5px solid var(--border);font-size:12.5px;font-weight:600;color:var(--muted);transition:border-color .15s,background .15s,color .15s}
+.vbtn:hover{border-color:var(--border-strong);color:var(--text)}
+.vbtn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.vbtn kbd{display:block;margin:3px auto 0;width:max-content;opacity:.7}
+.vbtn[aria-pressed=true].confirmed{border-color:var(--err);background:var(--err-bg);color:var(--err)}
+.vbtn[aria-pressed=true].false_positive{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.vbtn[aria-pressed=true].accepted_risk{border-color:var(--warn);background:var(--warn-bg);color:var(--warn)}
+.vbtn[aria-pressed=true].fixed{border-color:var(--low);background:var(--low-bg);color:var(--low)}
+.reviewer{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--muted)}
+.reviewer input{max-width:200px;padding:5px 9px}
+.thread{display:flex;flex-direction:column;gap:12px;margin:0;padding:0;list-style:none}
+.comment{display:grid;grid-template-columns:28px minmax(0,1fr);gap:10px}
+.comment .avatar{width:28px;height:28px;border-radius:8px;font-size:11px;grid-row:auto}
+.comment-head{display:flex;gap:8px;align-items:baseline;font-size:12px;color:var(--muted)}
+.comment-head b{color:var(--text)}
+.comment-head button{all:unset;cursor:pointer;margin-left:auto;font-size:11.5px;color:var(--faint)}
+.comment-head button:hover{color:var(--err)}
+.comment p{white-space:pre-wrap;overflow-wrap:anywhere;margin-top:2px}
+.comment.event p{font-style:italic;color:var(--muted)}
+.comment.event .avatar{background:var(--surface-3)!important;color:var(--muted)}
+.composer{display:flex;flex-direction:column;gap:8px}
+.composer textarea{min-height:72px;resize:vertical;font:inherit;line-height:1.5}
+.composer-actions{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.pdf-options{display:flex;flex-direction:column;gap:12px}
+.pdf-groups{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.check-row{display:flex;gap:9px;align-items:flex-start;font-size:13px;cursor:pointer}
+.check.box{border-radius:6px}
+.choice input[type=checkbox]:checked+.choice-card .check.box::after{content:"✓";width:auto;height:auto;background:none;border-radius:0;color:#fff;font-size:12px;font-weight:800;line-height:1}
+.secret-scope{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;padding:12px 14px;border:1px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2)}
+.secret-scope .help{flex-basis:100%}
+.step-head .help[data-note]:not([data-note=""])::after{content:attr(data-note);display:block;margin-top:4px;color:var(--warn);font-weight:600}
+.check-row input{margin-top:3px;accent-color:var(--accent)}
 .summary .panel{padding:16px 18px}
 .summary-title{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:12px}
 .sev-cards{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:8px}
@@ -456,7 +589,6 @@ a.link{color:var(--accent-text)}
   .sidebar{position:fixed;inset:0 auto 0 0;width:min(var(--side-w),86vw);transform:translateX(-102%);transition:transform .28s cubic-bezier(.4,0,.2,1);box-shadow:var(--shadow-lg)}
   .app.drawer-open .sidebar{transform:none}
   .app.collapsed .brand-text,.app.collapsed .nav-label,.app.collapsed .side-head,.app.collapsed .project-name,.app.collapsed .project-target,.app.collapsed .side-foot span:last-child,.app.collapsed .side-empty{display:revert}
-  .app.collapsed #history-wrap:not(.hidden){display:flex}
   .app.collapsed .side-top{flex-direction:row}.app.collapsed .nav button{justify-content:flex-start;padding:9px 11px}
   .app.collapsed .project{grid-template-columns:30px minmax(0,1fr);justify-content:stretch}
   .collapse-btn{display:none}.menu-btn{display:grid}
@@ -504,6 +636,67 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 .view-enter{animation:rise .35s cubic-bezier(.2,.7,.2,1)}
 @keyframes rise{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
 @media (prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;transition-duration:.01ms!important}}
+
+/* ===================== Design system: one style per component ===================== */
+/* Tags. Every tag is the same pill. A dot + tint means status; a plain outline means neutral info. */
+.badge,.chip{display:inline-flex;align-items:center;gap:6px;height:24px;padding:0 10px;border-radius:999px;
+  font-size:12px;font-weight:600;letter-spacing:0;text-transform:none;white-space:nowrap;line-height:1;
+  border:1px solid var(--border);background:var(--surface);color:var(--muted)}
+.badge.tone,.chip.tone{border-color:transparent}
+.badge.tone::before,.chip.tone::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor;flex:none}
+.badge.tone{background:var(--info-bg);color:var(--info)}
+.badge.tone.critical{background:var(--crit-bg);color:var(--crit)}.badge.tone.high{background:var(--high-bg);color:var(--high)}
+.badge.tone.medium{background:var(--med-bg);color:var(--med)}.badge.tone.low{background:var(--low-bg);color:var(--low)}
+.badge.tone.v-tp,.badge.tone.v-failed,.badge.tone.h-confirmed{background:var(--err-bg);color:var(--err)}
+.badge.tone.v-fp,.badge.tone.h-false_positive{background:var(--ok-bg);color:var(--ok)}
+.badge.tone.v-review,.badge.tone.h-accepted_risk{background:var(--warn-bg);color:var(--warn)}
+.badge.tone.h-fixed{background:var(--low-bg);color:var(--low)}
+.badge.tone.v-none{background:var(--info-bg);color:var(--info)}
+.badge.type{background:var(--surface);color:var(--muted);text-transform:none;letter-spacing:0}
+.badge.human::before{width:6px;height:6px}
+.chip.tone.ok{background:var(--ok-bg);color:var(--ok)}.chip.tone.warn{background:var(--warn-bg);color:var(--warn)}
+.chip.tone.err{background:var(--err-bg);color:var(--err)}
+.chips{gap:6px;margin-top:10px}
+.finding-top{gap:6px}
+.finding .badge{height:22px;padding:0 9px;font-size:11.5px}
+
+.pill{height:24px;padding:0 10px;border-radius:999px;font-size:12px;font-weight:600;line-height:1;display:inline-flex;align-items:center;gap:6px}
+
+/* Notices. Errors, warnings and coverage share one compact card. */
+.banner,.report-notes .coverage>summary{display:flex;align-items:flex-start;gap:10px;padding:10px 14px;
+  border-radius:var(--radius-sm);border:1px solid var(--border);background:var(--surface);color:var(--text);font-size:13px;line-height:1.5}
+.banner{margin:0 0 10px;border-color:color-mix(in srgb,var(--warn) 30%,var(--border));background:color-mix(in srgb,var(--warn-bg) 55%,var(--surface))}
+.banner::before{content:"!";flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;font-size:11px;font-weight:800;
+  background:var(--warn);color:var(--surface);margin-top:1px}
+.banner.error{border-color:color-mix(in srgb,var(--err) 30%,var(--border));background:color-mix(in srgb,var(--err-bg) 55%,var(--surface))}
+.banner.error::before{background:var(--err)}
+.report-notes{flex-direction:column;gap:8px;margin:0 0 16px}
+.report-notes .coverage>summary{width:100%;cursor:pointer;align-items:center}
+.report-notes .coverage>summary b{font-weight:600}
+.report-notes .coverage>summary span{color:var(--muted)}
+.report-notes .coverage>summary::after{content:"Show";margin-left:auto;font-size:12px;font-weight:600;color:var(--accent-text)}
+.report-notes .coverage[open]>summary::after{content:"Hide"}
+.report-notes .coverage[open]>summary{border-color:var(--border);color:var(--text);border-bottom-left-radius:0;border-bottom-right-radius:0}
+.report-notes .coverage[open]>ul,.report-notes .coverage[open]>div{margin-top:0;border-top:0;border-top-left-radius:0;border-top-right-radius:0}
+.report-notes #coverage-notice>summary{border-color:color-mix(in srgb,var(--low) 30%,var(--border));background:color-mix(in srgb,var(--low-bg) 55%,var(--surface))}
+.report-notes #coverage-notice>summary svg{display:none}
+.report-notes .coverage>summary::before{flex:none;width:18px;height:18px;border-radius:50%;display:grid;place-items:center;
+  font-size:11px;font-weight:800;color:var(--surface);content:"i";background:var(--faint)}
+.report-notes #coverage-notice>summary::before{background:var(--low)}
+.report-notes #coverage-notice>summary u{display:none}
+
+/* Buttons and controls share heights: 36px in the top bar, 38px in the content. */
+.topbar .btn,.topbar .status{height:36px;padding:0 13px;font-size:13px}
+.topbar .icon-btn{width:36px;height:36px}
+.report-actions .btn{height:38px;padding:0 15px;font-size:13.5px}
+.search input,.filter-toggle{height:38px}
+.filter-toggle{padding:0 13px;font-size:13px}
+.toolbar{align-items:center}
+
+/* Segmented controls look the same everywhere. */
+.view-switch{background:var(--surface-3);border-radius:var(--radius-sm);padding:3px;gap:2px}
+.view-switch button{padding:5px 11px;border-radius:6px;font-size:13px}
+.view-switch button[aria-pressed=true]{color:var(--accent-text)}
 </style></head><body>
 
 <div class="app" id="app">
@@ -517,14 +710,11 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
     <button type="button" id="nav-results" title="Results"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg><span class="nav-label">Results</span><span class="count hidden" id="nav-count"></span></button>
     <button type="button" id="nav-settings" title="Settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 100-6 3 3 0 000 6z"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 11-2.83 2.83l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 11-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 11-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 110-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 112.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 114 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 112.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 110 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg><span class="nav-label">Settings</span><span class="alert hidden" id="settings-alert" title="No AI provider connected"></span></button>
   </nav>
-  <div class="side-section">
-    <div class="side-head"><span class="eyebrow">Projects</span><button type="button" class="btn ghost sm" id="new-project">+ New</button></div>
+  <div class="side-section projects-section">
+    <div class="side-head"><span class="eyebrow">Projects <span class="faint" id="project-count"></span></span><button type="button" class="btn ghost sm" id="new-project">+ New</button></div>
     <button type="button" class="rail-new" id="new-project-rail" title="New project" aria-label="New project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg></button>
+    <label class="project-search hidden" id="project-search-wrap"><span class="sr">Search projects</span><input id="project-search" placeholder="Search projects…" autocomplete="off" spellcheck="false"></label>
     <div class="project-list" id="project-list"><p class="side-empty">Loading projects…</p></div>
-  </div>
-  <div id="history-wrap" class="side-section hidden">
-    <div class="side-head"><span class="eyebrow">Scan history</span></div>
-    <div class="history" id="history"></div>
   </div>
   <div class="side-foot" title="Listening on 127.0.0.1 only"><span class="dot"></span><span>Local only · 127.0.0.1</span></div>
 </aside>
@@ -534,6 +724,13 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 <header class="topbar">
   <button type="button" class="icon-btn menu-btn" id="menu-btn" aria-label="Open navigation" aria-controls="sidebar" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
   <div class="crumbs"><span class="crumb-root">Workspace</span><span class="sep" aria-hidden="true">/</span><b id="crumb">Scan</b></div>
+  <div class="history-picker hidden" id="history-wrap">
+    <button type="button" class="btn" id="history-toggle" aria-expanded="false" aria-controls="history-pop" title="Scans of the selected project"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg><span class="label">Scan history</span><span class="history-count" id="history-count"></span></button>
+    <div class="history-pop hidden" id="history-pop" role="dialog" aria-label="Scan history">
+      <div class="history-pop-head"><b id="history-project"></b><span class="help">Open a scan, or ↻ to rerun it</span></div>
+      <div class="history" id="history"></div>
+    </div>
+  </div>
   <div class="topbar-right">
     <button type="button" class="icon-btn" id="theme-toggle" aria-label="Dark mode" aria-pressed="false" title="Toggle dark mode">
       <svg class="moon" aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M20.9 13.3A9 9 0 0 1 10.7 3.1a9 9 0 1 0 10.2 10.2Z"/></svg>
@@ -541,7 +738,6 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
     </button>
     <span class="status" id="job-status" role="status"><span class="dot"></span><span class="status-text" id="job-status-text">Ready</span></span>
     <label class="btn" title="Open a saved JSON report"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 15V3m0 0l-4 4m4-4l4 4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">Open report</span><input class="hidden" type="file" id="upload" accept=".json,application/json"></label>
-    <button class="btn" id="export" disabled title="Download the full report as JSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">Export</span></button>
   </div>
 </header>
 
@@ -584,12 +780,19 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
       <div class="step-num">2</div>
       <div class="step-body">
         <div class="step-head"><h2>What should we look for?</h2></div>
-        <div class="choices" role="radiogroup" aria-label="Scanner">
-          <label class="choice"><input type="radio" name="scanner" value="semgrep" checked><div class="choice-card"><div class="choice-title">Code issues<span class="check"></span></div><div class="choice-desc">SAST with Semgrep: injection, unsafe APIs and insecure patterns in your source.</div></div></label>
-          <label class="choice"><input type="radio" name="scanner" value="trivy"><div class="choice-card"><div class="choice-title">Vulnerable dependencies<span class="check"></span></div><div class="choice-desc">SCA with Trivy: known CVEs in libraries from lockfiles and manifests.</div></div></label>
-          <label class="choice"><input type="radio" name="scanner" value="gitleaks-files"><div class="choice-card"><div class="choice-title">Secrets in current files<span class="check"></span></div><div class="choice-desc">Gitleaks checks the folder for exposed credentials, including uncommitted files.</div></div></label>
-          <label class="choice"><input type="radio" name="scanner" value="gitleaks-history"><div class="choice-card"><div class="choice-title">Secrets in Git history<span class="check"></span></div><div class="choice-desc">Gitleaks checks available commits, including credentials removed from current files.</div></div></label>
-          <label class="choice"><input type="radio" name="scanner" value="all"><div class="choice-card"><div class="choice-title">Code + dependencies<span class="check"></span></div><div class="choice-desc">Run Semgrep and Trivy to check code issues and vulnerable dependencies in one report.</div></div></label>
+        <p class="help" style="margin-top:-6px">Choose one or more. They run together and appear in one report.</p>
+        <div class="choices" role="group" aria-label="What to scan">
+          <label class="choice"><input type="checkbox" name="scan-kind" value="semgrep" checked><div class="choice-card"><div class="choice-title">Code issues<span class="check box"></span></div><div class="choice-desc">SAST with Semgrep: injection, unsafe APIs and insecure patterns in your source.</div></div></label>
+          <label class="choice"><input type="checkbox" name="scan-kind" value="trivy"><div class="choice-card"><div class="choice-title">Vulnerable dependencies<span class="check box"></span></div><div class="choice-desc">SCA with Trivy: known CVEs in libraries from lockfiles and manifests.</div></div></label>
+          <label class="choice"><input type="checkbox" name="scan-kind" value="gitleaks"><div class="choice-card"><div class="choice-title">Secrets<span class="check box"></span></div><div class="choice-desc">Gitleaks finds exposed credentials such as API keys and passwords.</div></div></label>
+        </div>
+        <div class="secret-scope hidden" id="secret-scope">
+          <span class="label">Look for secrets in</span>
+          <div class="seg" role="radiogroup" aria-label="Secret scan scope">
+            <label><input type="radio" name="secret-scope" value="gitleaks-files" checked><span>Current files</span></label>
+            <label><input type="radio" name="secret-scope" value="gitleaks-history"><span>Git history</span></label>
+          </div>
+          <span class="help" id="secret-scope-help"></span>
         </div>
       </div>
     </section>
@@ -679,27 +882,41 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
   <div id="results" class="hidden">
     <div class="page-head report-head">
       <div style="min-width:0"><span class="eyebrow" id="report-when">Report</span><h1 id="report-title"></h1><div class="chips" id="report-chips"></div></div>
-      <button type="button" class="btn hidden" id="rerun-report" title="Scan this project again with the same settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/></svg>Rerun scan</button>
+      <div class="report-actions">
+        <button type="button" class="btn hidden" id="rerun-report" title="Scan this project again with the same settings"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M20 11a8 8 0 10-2.3 5.7M20 4v7h-7"/></svg>Rerun scan</button>
+        <button class="btn primary" id="export-pdf" disabled title="Download a PDF report of this scan"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg><span class="label">PDF report</span></button>
+        <button class="btn" id="export" disabled title="Download the full report as JSON"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 15v4a2 2 0 002 2h12a2 2 0 002-2v-4"/></svg><span class="label">JSON</span></button>
+      </div>
     </div>
     <div id="message" class="banner hidden" role="status"></div>
+    <div class="report-notes">
     <details class="coverage" id="scan-coverage">
-      <summary><b>Scan coverage</b><span>View scope and reported files</span></summary>
+      <summary><b>Scan coverage</b><span>Scope and files</span></summary>
       <ul id="scan-coverage-list"></ul>
     </details>
     <details class="coverage hidden" id="coverage-notice">
       <summary><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8h.01M11 12h1v5h1"/></svg><span><b id="coverage-title"></b> <u>Show details</u></span></summary>
       <ul id="coverage-list"></ul>
     </details>
+    </div>
 
-    <div class="summary">
-      <div class="panel">
-        <div class="summary-title"><h3>By severity</h3><span class="help"><b id="total">0</b> findings · click to filter</span></div>
+    <div class="panel summary-strip">
+      <div class="strip-col">
+        <div class="strip-head"><h3>Severity</h3><span class="help"><b id="total">0</b> findings</span></div>
         <div class="sev-cards" id="sev-cards"></div>
       </div>
-      <div class="panel">
-        <div class="summary-title"><h3>AI review</h3><span class="help" id="ai-summary-note"></span></div>
+      <div class="strip-col">
+        <div class="strip-head"><h3>AI review</h3><span class="help" id="ai-summary-note"></span></div>
         <div class="stack" id="verdict-bar" role="img" aria-label="AI verdict breakdown"></div>
-        <div class="legend" id="verdict-legend"></div>
+        <div class="legend compact" id="verdict-legend"></div>
+      </div>
+      <div class="strip-col" id="human-panel">
+        <div class="strip-head"><h3>Human review</h3><span class="help" id="human-note"></span></div>
+        <div class="human-diff">
+          <b class="diff-num" id="diff-raw">0</b><span class="diff-arrow" aria-hidden="true">→</span><b class="diff-num after" id="diff-after">0</b>
+          <span class="help">open after review</span>
+        </div>
+        <div class="legend compact" id="human-legend"></div>
       </div>
     </div>
 
@@ -708,20 +925,21 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
         <div class="toolbar">
           <div class="tabs" id="result-types" role="group" aria-label="Finding type"></div>
           <div class="search"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg><input id="search" aria-label="Search findings" placeholder="Search rule, file, package…"></div>
+          <button type="button" class="btn filter-toggle" id="filter-toggle" aria-expanded="false" aria-controls="filter-panel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 6h16M7 12h10M10 18h4"/></svg>Filters<span class="filter-count hidden" id="filter-count"></span></button>
         </div>
-        <div class="toolbar" style="padding-top:8px;padding-bottom:8px">
-          <select id="severity" aria-label="Severity"><option value="">Any severity</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>info</option><option>unknown</option></select>
-          <select id="verdict" aria-label="AI verdict"><option value="">Any AI verdict</option><option value="likely_true_positive">Likely real</option><option value="needs_review">Needs review</option><option value="likely_false_positive">Likely false alarm</option><option value="failed">Review failed</option><option value="unassessed">Not reviewed</option></select>
-          <select id="sort" aria-label="Sort"><option value="severity">Sort: severity</option><option value="verdict">Sort: AI verdict</option><option value="file">Sort: file</option></select>
-          <select id="group" aria-label="Group findings"><option value="">No grouping</option><option value="file">Group by file</option><option value="type">Group by type</option><option value="package-rule">Group by package or rule</option></select>
+        <div class="filter-panel hidden" id="filter-panel">
+          <label class="field"><span>Severity</span><select id="severity" aria-label="Severity"><option value="">Any severity</option><option>critical</option><option>high</option><option>medium</option><option>low</option><option>info</option><option>unknown</option></select></label>
+          <label class="field"><span>AI verdict</span><select id="verdict" aria-label="AI verdict"><option value="">Any AI verdict</option><option value="likely_true_positive">Likely real</option><option value="needs_review">Needs review</option><option value="likely_false_positive">Likely false alarm</option><option value="failed">Review failed</option><option value="unassessed">Not reviewed</option></select></label>
+          <label class="field"><span>Human review</span><select id="human" aria-label="Human review"><option value="">Any human review</option><option value="none">Not reviewed</option><option value="confirmed">Confirmed</option><option value="false_positive">False positive</option><option value="accepted_risk">Accepted risk</option><option value="fixed">Fixed</option></select></label>
+          <label class="field"><span>Sort by</span><select id="sort" aria-label="Sort"><option value="severity">Severity</option><option value="verdict">AI verdict</option><option value="file">File</option></select></label>
+          <label class="field"><span>Group by</span><select id="group" aria-label="Group findings"><option value="">No grouping</option><option value="file">File</option><option value="type">Type</option><option value="package-rule">Package or rule</option></select></label>
         </div>
-        <div class="list-meta"><span id="count"></span><button type="button" class="btn ghost sm hidden" id="clear-filters">Clear filters</button></div>
+        <div class="list-meta"><span id="count"></span><span style="display:flex;gap:8px;align-items:center"><button type="button" class="btn ghost sm hidden" id="clear-filters">Clear filters</button><span class="view-switch" role="group" aria-label="View"><button type="button" id="view-raw" aria-pressed="true" title="Every scanner finding; reviewed false positives and fixed items are struck through">Scanner view</button><button type="button" id="view-reviewed" aria-pressed="false" title="Hide findings a reviewer marked as false positive or fixed">Reviewed view</button></span></span></div>
         <div class="list" id="list" role="listbox" aria-label="Findings list" tabindex="-1"></div>
       </section>
       <section class="panel detail" id="detail" aria-live="polite"></section>
     </div>
-    <p class="kbd-hint">Shortcuts: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> next/previous finding · <kbd>/</kbd> search</p>
-    <p class="footnote">AI verdicts are suggestions for a human reviewer. Scanner findings are never removed from the report.</p>
+    <p class="kbd-hint">AI verdicts are suggestions; scanner findings are never removed. Shortcuts: <kbd>j</kbd>/<kbd>k</kbd> or <kbd>↓</kbd>/<kbd>↑</kbd> next/previous finding · <kbd>/</kbd> search · review: <kbd>c</kbd> confirmed, <kbd>f</kbd> false positive, <kbd>a</kbd> accepted risk, <kbd>x</kbd> fixed</p>
   </div>
 </section>
 
@@ -753,6 +971,27 @@ input:focus,select:focus{outline:none;border-color:var(--accent);box-shadow:0 0 
 </main>
 </div>
 </div>
+<dialog class="modal" id="pdf-dialog" aria-labelledby="pdf-title">
+  <div class="modal-body">
+    <div class="modal-icon" style="background:var(--grad-soft);color:var(--accent-text)" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14 3H7a2 2 0 00-2 2v14a2 2 0 002 2h10a2 2 0 002-2V8z"/><path d="M14 3v5h5M9 13h6M9 17h4"/></svg></div>
+    <h2 id="pdf-title">PDF report</h2>
+    <p class="muted" id="pdf-sub" style="margin-top:-6px"></p>
+    <div class="pdf-options">
+      <div><span class="label">Group findings by</span>
+        <div class="pdf-groups" role="radiogroup" aria-label="Group findings by" style="margin-top:6px">
+          <label class="choice"><input type="radio" name="pdf-group" value="category" checked><div class="choice-card"><div class="choice-title">Category<span class="check"></span></div><div class="choice-desc">Code, dependencies, secrets</div></div></label>
+          <label class="choice"><input type="radio" name="pdf-group" value="severity"><div class="choice-card"><div class="choice-title">Severity<span class="check"></span></div><div class="choice-desc">Critical first</div></div></label>
+          <label class="choice"><input type="radio" name="pdf-group" value="review"><div class="choice-card"><div class="choice-title">Human review<span class="check"></span></div><div class="choice-desc">Confirmed, accepted, open…</div></div></label>
+          <label class="choice"><input type="radio" name="pdf-group" value="file"><div class="choice-card"><div class="choice-title">File<span class="check"></span></div><div class="choice-desc">One section per file</div></div></label>
+        </div>
+      </div>
+      <label class="check-row"><input type="checkbox" id="pdf-fp" checked><span>Include findings marked as false positive</span></label>
+      <label class="check-row"><input type="checkbox" id="pdf-comments" checked><span>Include review notes and history</span></label>
+      <label class="check-row"><input type="checkbox" id="pdf-code" checked><span>Include source code excerpts <span class="help">(the PDF is then sensitive; share carefully)</span></span></label>
+    </div>
+  </div>
+  <div class="modal-actions"><button type="button" class="btn" id="pdf-cancel">Cancel</button><button type="button" class="btn primary" id="pdf-go">Download PDF</button></div>
+</dialog>
 <dialog class="modal" id="delete-dialog" aria-labelledby="delete-title">
   <div class="modal-body">
     <div class="modal-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg></div>
@@ -797,6 +1036,8 @@ const token='__TOKEN__';
 const inContainer=__CONTAINER__;
 const SEVERITIES=['critical','high','medium','low','info','unknown'];
 const SEV_COLOR={critical:'var(--crit)',high:'var(--high)',medium:'var(--med)',low:'var(--low)',info:'var(--info)',unknown:'var(--border-strong)'};
+const HUMAN={confirmed:{label:'Confirmed',color:'var(--err)',key:'c'},false_positive:{label:'False positive',color:'var(--ok)',key:'f'},
+  accepted_risk:{label:'Accepted risk',color:'var(--warn)',key:'a'},fixed:{label:'Fixed',color:'var(--low)',key:'x'}};
 const VERDICTS={
   likely_true_positive:{label:'Likely real',cls:'v-tp',color:'var(--err)',order:0},
   needs_review:{label:'Needs review',cls:'v-review',color:'var(--warn)',order:1},
@@ -804,17 +1045,27 @@ const VERDICTS={
   unassessed:{label:'Not reviewed',cls:'v-none',color:'var(--border-strong)',order:3},
   likely_false_positive:{label:'Likely false alarm',cls:'v-fp',color:'var(--ok)',order:4},
 };
-const SCANNERS={semgrep:'code issues (Semgrep)',trivy:'vulnerable dependencies (Trivy)',all:'code issues and dependencies',
-  'gitleaks-files':'secrets in current files (Gitleaks)','gitleaks-history':'secrets in Git history (Gitleaks)'};
+const SCANNERS={semgrep:'code issues',trivy:'vulnerable dependencies',
+  'gitleaks-files':'secrets in current files','gitleaks-history':'secrets in Git history'};
+// The selected scanners as a '+'-joined list, e.g. 'semgrep+trivy+gitleaks-files'.
+function scannerSpec(){
+  return [...document.querySelectorAll('input[name="scan-kind"]:checked')]
+    .map(i=>i.value==='gitleaks'?radio('secret-scope'):i.value).join('+');
+}
+const scannerNames=spec=>spec==='all'?['semgrep','trivy']:(spec||'semgrep').split('+');
+function describeScanners(spec){
+  const parts=scannerNames(spec).map(n=>SCANNERS[n]||n);
+  return parts.length>1?parts.slice(0,-1).join(', ')+' and '+parts.at(-1):parts[0]||'nothing yet';
+}
 const SCAN_STEPS={semgrep:'Semgrep code scan',trivy:'Trivy dependency scan',
   'gitleaks-files':'Gitleaks current files','gitleaks-history':'Gitleaks Git history'};
-let report=null,selected=null,visible=[],resultType='all',busy=false,projects=[],providers=[],providerInfo={providers:[],default_provider:'openai'},checks={},checking={},projectId=null,viewGeneration=0,timer=null,lastScan=null,toastTimer=null,lastJob=null,clockOffset=0,currentRunId=null,runInfo={},currentView='scan',reportProjectId=null;
+let reviews={},viewMode='raw',report=null,selected=null,visible=[],resultType='all',busy=false,projects=[],providers=[],providerInfo={providers:[],default_provider:'openai'},checks={},checking={},projectId=null,viewGeneration=0,timer=null,lastScan=null,toastTimer=null,lastJob=null,clockOffset=0,currentRunId=null,runInfo={},currentView='scan',reportProjectId=null;
 
 /* ---------- helpers ---------- */
 const el=(tag,cls,value)=>{const e=document.createElement(tag);if(cls)e.className=cls;if(value!==undefined&&value!==null)e.textContent=value;return e};
 const badge=(value,cls)=>el('span','badge '+(cls||''),value);
-const sevBadge=s=>badge(s,SEVERITIES.slice(0,4).includes(s)?s:'');
-const verdictBadge=v=>{const d=VERDICTS[v]||{label:v,cls:'v-none'};return badge(d.label,d.cls)};
+const sevBadge=s=>badge(s.charAt(0).toUpperCase()+s.slice(1),'tone '+(SEVERITIES.slice(0,4).includes(s)?s:''));
+const verdictBadge=v=>{const d=VERDICTS[v]||{label:v,cls:'v-none'};return badge(d.label,'tone '+d.cls)};
 const radio=name=>document.querySelector(`input[name="${name}"]:checked`)?.value;
 let repositoryChecking=false,repositoryAccess=null;
 const REPOSITORY_TOKENS={
@@ -844,7 +1095,7 @@ function showView(name){
   for(const view of ['scan','results','settings'])$('view-'+view).classList.toggle('hidden',name!==view);
   for(const [id,view] of [['nav-scan','scan'],['nav-results','results'],['nav-settings','settings']]){if(view===name)$(id).setAttribute('aria-current','page');else $(id).removeAttribute('aria-current')}
   if(location.hash!=='#'+name)history.replaceState(null,'','#'+name);
-  currentView=name;
+  currentView=name;updateHistoryPicker();
   $('crumb').textContent={scan:'Scan',results:'Results',settings:'Settings'}[name];
   document.title={scan:'Scan',results:'Results',settings:'Settings'}[name]+' · AppSec Triage';
   const view=$('view-'+name);view.classList.remove('view-enter');void view.offsetWidth;view.classList.add('view-enter');
@@ -883,13 +1134,13 @@ function openSettings(name){showView('settings');const card=$('settings-'+name);
 function validate(r){if(!r||r.schema_version!=='1.0'||!r.scan||!Array.isArray(r.scan.findings)||!Array.isArray(r.assessments)||!Array.isArray(r.failed_assessments))throw Error('Choose an AppSec report with schema version 1.0.');const ids=new Set();for(const f of r.scan.findings){if(!f||!['id','rule_id','file_path','severity','message'].every(k=>typeof f[k]==='string')||ids.has(f.id))throw Error('Report contains invalid or duplicate findings.');ids.add(f.id);}for(const a of r.assessments){if(!a||typeof a.finding_id!=='string'||!Array.isArray(a.evidence)||typeof a.verdict!=='string')throw Error('Report contains an invalid assessment.');}for(const a of r.failed_assessments){if(!a||typeof a.finding_id!=='string')throw Error('Report contains an invalid failed assessment.');}return r;}
 function load(r,when){
   validate(r);report=r;selected=null;resultType='all';
-  for(const id of ['search','severity','verdict'])$(id).value='';
-  $('export').disabled=false;$('results-empty').classList.add('hidden');$('results').classList.remove('hidden');
+  for(const id of ['search','severity','verdict','human'])$(id).value='';
+  $('export').disabled=false;$('export-pdf').disabled=false;$('results-empty').classList.add('hidden');$('results').classList.remove('hidden');
   const n=r.scan.findings.length;$('nav-count').textContent=n;$('nav-count').classList.remove('hidden');
   $('report-title').textContent=r.repository?.url||r.scan.target||'Scan report';
   $('report-when').textContent=when||'Latest report';
   const chips=$('report-chips');chips.replaceChildren();
-  const status=r.scan.status||'unknown';chips.append(el('span','chip '+(status==='completed'?'ok':status==='partial'?'warn':'err'),'Scan '+status));
+  const status=r.scan.status||'unknown';chips.append(el('span','chip tone '+(status==='completed'?'ok':status==='partial'?'warn':'err'),'Scan '+status));
   chips.append(el('span','chip',(r.scan.scanner||'scanner')+(r.scan.scanner_version?' '+r.scan.scanner_version:'')));
   if(r.repository?.branch)chips.append(el('span','chip','Branch: '+r.repository.branch));
   const models=[...new Set(r.assessments.map(a=>a.model_name).filter(m=>m&&m!=='not_called'))];
@@ -914,12 +1165,11 @@ function load(r,when){
     $('coverage-title').textContent=`${warnings.length} coverage warning${warnings.length===1?'':'s'}`;
     const list=$('coverage-list');list.replaceChildren();
     for(const w of warnings)list.append(el('li','',w));
-    chips.append(el('span','chip warn',`${warnings.length} coverage warning${warnings.length===1?'':'s'}`));
   }
   renderSummary();render();
 }
 function clearReport(project=null,hasRuns=false){
-  report=null;reportProjectId=null;selected=null;$('export').disabled=true;$('nav-count').classList.add('hidden');
+  report=null;reportProjectId=null;reviews={};$('export-pdf').disabled=true;selected=null;$('export').disabled=true;$('nav-count').classList.add('hidden');
   $('results').classList.add('hidden');$('results-loading').classList.add('hidden');$('results-empty').classList.remove('hidden');
   setCurrentRun(null);markRun(null);
   $('empty-title').textContent=project?(hasRuns?`No completed scans for ${project.name}`:`No scans for ${project.name} yet`):'No results yet';
@@ -944,7 +1194,7 @@ async function openFile(e){
     showLoading('Opening '+file.name,`Reading ${(file.size/1024).toFixed(0)} KB…`);await nextFrame();
     const data=JSON.parse(await file.text());
     $('loading-sub').textContent=`Checking ${data?.scan?.findings?.length??0} findings…`;await nextFrame();
-    load(data,'Opened from '+file.name);reportProjectId=null;markRun(null);setCurrentRun(null);hideLoading();toast('Report opened');
+    load(data,'Opened from '+file.name);reportProjectId=null;markRun(null);setCurrentRun(null);hideLoading();loadReviews();toast('Report opened');
   }catch(err){hideLoading();toast('Unable to open report: '+err.message,true)}
   finally{e.target.value=''}
 }
@@ -957,6 +1207,22 @@ const failure=f=>report.failed_assessments.find(a=>a.finding_id===f.id);
 const outcome=f=>assessment(f)?.verdict||(failure(f)?'failed':'unassessed');
 const findingType=f=>f.category||(f.scanner==='trivy'?'sca':'sast');
 const findingLabel=f=>({sast:'Code',sca:'Dependency',secret:'Secret'})[findingType(f)]||'Finding';
+const human=f=>reviews[f.id]?.verdict||null;
+const dismissed=f=>['false_positive','fixed'].includes(human(f));
+const humanBadge=v=>badge(HUMAN[v].label,'tone human h-'+v);
+function agreement(f){
+  const ai=outcome(f),h=human(f);
+  if(findingType(f)!=='sast'||!h||['unassessed','failed'].includes(ai))return null;
+  if(ai==='needs_review')return {text:'AI was unsure; the reviewer decided',override:false};
+  const real=['confirmed','accepted_risk','fixed'].includes(h);
+  return (ai==='likely_true_positive')===real?{text:'Reviewer agrees with the AI',override:false}:{text:'Reviewer overrode the AI',override:true};
+}
+let reviewer='';try{reviewer=localStorage.getItem('appsec.reviewer')||''}catch{}
+async function loadReviews(){
+  const id=reportProjectId;reviews={};
+  if(id!=null){try{const data=await api(`/api/projects/${id}/reviews`);if(reportProjectId===id)reviews=data}catch(e){toast(e.message,true)}}
+  if(report)render();
+}
 function title(f){
   if(findingType(f)==='sca')return `${f.package_name||'Dependency'} · ${f.vulnerability_id||f.rule_id}`;
   const last=f.rule_id.split('.').slice(-1)[0].replaceAll('-',' ').replaceAll('_',' ');
@@ -970,7 +1236,7 @@ function renderSummary(){
   const cards=$('sev-cards');cards.replaceChildren();
   for(const s of ['critical','high','medium','low','info']){
     const n=fs.filter(f=>s==='info'?['info','unknown'].includes(f.severity):f.severity===s).length;
-    const b=el('button','sev-card '+s+(n?'':' zero'));b.type='button';b.append(el('strong','',n),el('span','',s==='info'?'info / other':s));
+    const b=el('button','sev-card '+s+(n?'':' zero'));b.type='button';b.append(el('strong','',n),el('span','',s));b.title=s==='info'?'Info and unknown severity':'';
     b.setAttribute('aria-pressed',String($('severity').value===s));
     b.onclick=()=>{$('severity').value=$('severity').value===s?'':s;render()};cards.append(b);
   }
@@ -985,6 +1251,17 @@ function renderSummary(){
     b.onclick=()=>{$('verdict').value=$('verdict').value===key?'':key;render()};legend.append(b);
   }
   if(!legend.children.length)legend.append(el('p','help','No code findings to review.'));
+  // Human review: how the reviewed view differs from the raw scanner result.
+  const hl=$('human-legend');hl.replaceChildren();
+  const after=fs.filter(f=>!dismissed(f)).length,reviewedCount=fs.filter(f=>human(f)).length;
+  $('diff-raw').textContent=fs.length;$('diff-after').textContent=after;
+  $('human-note').textContent=reportProjectId==null?'Saved projects only':`${reviewedCount} of ${fs.length} reviewed`;
+  for(const [key,d] of [...Object.entries(HUMAN),['none',{label:'Not reviewed',color:'var(--border-strong)'}]]){
+    const n=fs.filter(f=>(human(f)||'none')===key).length;if(!n)continue;
+    const b=el('button');b.type='button';const sw=el('i');sw.style.background=d.color;b.append(sw,el('span','',d.label),el('b','',n));
+    b.setAttribute('aria-pressed',String($('human').value===key));
+    b.onclick=()=>{$('human').value=$('human').value===key?'':key;render()};hl.append(b);
+  }
 }
 
 /* ---------- list ---------- */
@@ -998,7 +1275,7 @@ function renderTabs(){
     else if(status&&status!=='completed')b.title='Scanner status: '+status;
     b.setAttribute('aria-pressed',String(resultType===type));b.onclick=()=>{resultType=type;render()};group.append(b);
   }
-  if(report.scan.scanner?.startsWith('gitleaks-')||report.scan.findings.some(f=>findingType(f)==='secret')){
+  if(report.scan.scanner?.includes('gitleaks-')||report.scan.findings.some(f=>findingType(f)==='secret')){
     const count=report.scan.findings.filter(f=>findingType(f)==='secret').length;
     const b=el('button','',`Secrets ${count}`);b.type='button';
     b.setAttribute('aria-pressed',String(resultType==='secret'));
@@ -1036,16 +1313,19 @@ function groupFindings(findings,mode){
 }
 function render(){
   if(!report)return;renderTabs();renderSummary();
-  const q=$('search').value.trim().toLowerCase(),sev=$('severity').value,ver=$('verdict').value;
+  const q=$('search').value.trim().toLowerCase(),sev=$('severity').value,ver=$('verdict').value,hum=$('human').value;
   const matches=report.scan.findings.filter(f=>(resultType==='all'||findingType(f)===resultType)
+    &&(viewMode==='raw'||!dismissed(f))
+    &&(!hum||(human(f)||'none')===hum)
     &&(!sev||(sev==='info'?['info','unknown'].includes(f.severity):f.severity===sev))
     &&(!ver||outcome(f)===ver)
     &&(!q||[f.rule_id,f.file_path,f.message,f.package_name,f.vulnerability_id,title(f)].join(' ').toLowerCase().includes(q)));
   const groups=groupFindings(sorted(matches),$('group').value);
   visible=groups.flatMap(group=>group.findings);
-  const filtered=Boolean(q||sev||ver||resultType!=='all');
-  $('clear-filters').classList.toggle('hidden',!filtered);
-  $('count').textContent=filtered?`Showing ${visible.length} of ${report.scan.findings.length}`:`${visible.length} finding${visible.length===1?'':'s'}`;
+  const filtered=Boolean(q||sev||ver||hum||resultType!=='all');
+  $('clear-filters').classList.toggle('hidden',!filtered);updateFilterCount();
+  const hiddenByReview=viewMode==='reviewed'?report.scan.findings.filter(dismissed).length:0;
+  $('count').textContent=(filtered?`Showing ${visible.length} of ${report.scan.findings.length}`:`${visible.length} finding${visible.length===1?'':'s'}`)+(hiddenByReview?` · ${hiddenByReview} hidden by review`:'');
   const list=$('list');list.replaceChildren();
   if(!visible.length){
     list.append(el('div','no-results',report.scan.findings.length?'No findings match these filters.':'No findings. Nothing to fix here.'));
@@ -1061,10 +1341,11 @@ function render(){
       container.append(header);list.append(container);
     }
     for(const f of findings){
-      const b=el('button','finding');b.type='button';b.setAttribute('role','option');b.dataset.id=f.id;
+      const b=el('button','finding'+(dismissed(f)?' dismissed':''));b.type='button';b.setAttribute('role','option');b.dataset.id=f.id;
       b.style.setProperty('--sev',SEV_COLOR[f.severity]||'transparent');b.setAttribute('aria-selected',String(selected===f.id));
       const type=findingType(f),top=el('span','finding-top');top.append(sevBadge(f.severity),badge(findingLabel(f),'type'));
       if(type==='sast')top.append(verdictBadge(outcome(f)));
+      if(human(f))top.append(humanBadge(human(f)));
       let location=type==='sca'?`${f.file_path} · ${f.installed_version||''}`:locationOf(f);
       if(type==='secret'&&typeof f.metadata?.commit==='string'&&f.metadata.commit)location+=` · ${f.metadata.commit.slice(0,7)}`;
       b.append(top,el('span','finding-title',title(f)),el('span','finding-loc',location));
@@ -1081,8 +1362,15 @@ function select(id,fromClick){
   if(fromClick&&window.matchMedia('(max-width:1180px)').matches)$('detail').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function step(delta){if(!visible.length)return;const i=visible.findIndex(f=>f.id===selected);const next=visible[Math.min(visible.length-1,Math.max(0,i+delta))];if(next)select(next.id)}
-for(const id of ['search','severity','verdict','sort','group'])$(id).addEventListener('input',render);
-$('clear-filters').onclick=()=>{for(const id of ['search','severity','verdict'])$(id).value='';resultType='all';render()};
+for(const id of ['search','severity','verdict','human','sort','group'])$(id).addEventListener('input',render);
+$('filter-toggle').onclick=()=>{
+  const open=$('filter-panel').classList.toggle('hidden')===false;$('filter-toggle').setAttribute('aria-expanded',String(open));
+};
+function updateFilterCount(){
+  const n=['severity','verdict','human','group'].filter(id=>$(id).value).length+($('sort').value!=='severity'?1:0);
+  $('filter-count').textContent=n;$('filter-count').classList.toggle('hidden',!n);
+}
+$('clear-filters').onclick=()=>{for(const id of ['search','severity','verdict','human'])$(id).value='';resultType='all';render()};
 document.addEventListener('keydown',e=>{
   if($('view-results').classList.contains('hidden')||!report||e.metaKey||e.ctrlKey||e.altKey)return;
   const typing=['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName);
@@ -1090,11 +1378,14 @@ document.addEventListener('keydown',e=>{
   if(e.key==='Escape'&&document.activeElement===$('search')){$('search').blur();return}
   if(typing)return;
   if(e.key==='j'||e.key==='ArrowDown'){e.preventDefault();step(1)}
+  const hk=Object.entries(HUMAN).find(([,d])=>d.key===e.key);
+  if(hk&&selected&&reportProjectId!=null){const f=visible.find(x=>x.id===selected);if(f){e.preventDefault();setHuman(f,human(f)===hk[0]?null:hk[0])}}
   if(e.key==='k'||e.key==='ArrowUp'){e.preventDefault();step(-1)}
 });
 
 /* ---------- detail ---------- */
 const ICON={
+  human:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0116 0"/><path d="M16 11l2 2 4-4"/></svg>',
   ai:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 3l1.8 4.6L18 9.5l-4.2 1.9L12 16l-1.8-4.6L6 9.5l4.2-1.9z"/><path d="M19 15l.8 2 2 .8-2 .8-.8 2-.8-2-2-.8 2-.8z"/></svg>',
   fix:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M14.7 6.3a4 4 0 00-5.4 5.4L3 18v3h3l6.3-6.3a4 4 0 005.4-5.4l-2.5 2.5-2.4-.6-.6-2.4z"/></svg>',
   code:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 7l-5 5 5 5M16 7l5 5-5 5"/></svg>',
@@ -1133,17 +1424,12 @@ function details(f){
   const prev=el('button','btn ghost sm','← Prev');prev.type='button';prev.disabled=i<=0;prev.onclick=()=>step(-1);
   const next=el('button','btn ghost sm','Next →');next.type='button';next.disabled=i>=visible.length-1;next.onclick=()=>step(1);
   navBtns.append(prev,next);nav.append(pos,navBtns);
-  const badges=el('div','finding-top');badges.append(sevBadge(f.severity),badge(findingLabel(f),'type'));if(!sca&&!secret)badges.append(verdictBadge(outcome(f)));
+  const badges=el('div','finding-top');badges.append(sevBadge(f.severity),badge(findingLabel(f),'type'));
   const loc=el('div','loc-row');loc.append(el('span','mono muted',locationOf(f)),copyButton(locationOf(f),'Location'));
   head.append(nav,badges,el('h2','',title(f)),el('div','mono faint',f.rule_id),loc);d.append(head);
 
   const body=el('div','detail-body');d.append(body);
-  const facts=el('dl','facts');facts.style.margin='0';
-  fact(facts,'Severity',f.severity);
-  if(sca){fact(facts,'Package',f.package_name||'—');fact(facts,'Installed',f.installed_version||'—');fact(facts,'Fixed in',f.fixed_version||'No fix yet')}
-  else if(secret&&f.metadata?.commit){fact(facts,'Commit',f.metadata.commit)}
-  else if(!secret){fact(facts,'AI verdict',VERDICTS[outcome(f)]?.label||outcome(f));if(typeof a?.confidence==='number')fact(facts,'AI confidence',Math.round(a.confidence*100)+'%');fact(facts,'File',f.file_path.split('/').pop())}
-  body.append(facts);
+  body.append(trio(f));
 
   // Fix first: what should the developer do?
   const fix=card('How to fix','fix','fix');
@@ -1154,6 +1440,7 @@ function details(f){
   else if(a)block(fix.body,null,a.remediation);
   else fix.body.append(el('p','muted',fail?'The AI review failed, so there is no suggested fix. Use the scanner guidance below.':'Turn on AI review when scanning to get a suggested fix, or follow the scanner guidance below.'));
   body.append(fix.card);
+  if(sca||secret)body.append(humanCard(f));
 
   if(!sca&&!secret){
     const ai=card('AI review','ai');
@@ -1164,13 +1451,13 @@ function details(f){
       ai.body.append(el('div','subhead','Evidence'));const ul=el('ul','evidence');for(const item of a.evidence)ul.append(el('li','',item));if(!a.evidence.length)ul.append(el('li','','No citations provided.'));ai.body.append(ul);
       if(a.model_name)ai.body.append(el('p','help','Reviewed by '+a.model_name));
     }else ai.body.append(el('p','muted',fail?.error||'Not reviewed. Run a scan with AI review turned on to get a verdict.'));
-    body.append(ai.card);
+    body.append(ai.card,humanCard(f));
     const code=card('Affected code','code');
     if(typeof f.source_snippet==='string'&&f.source_snippet){code.body.style.padding='0';code.body.append(sourceCode(f.file_path,f.source_snippet))}
     else code.body.append(el('p','muted',f.source_error||'Source code is not included in this report. Run a new scan to capture it.'));
     body.append(code.card);
   }
-  const ev=card('Scanner details','scan');
+  const ev=card('More details','scan');
   if(secret&&f.scanner?.startsWith('gitleaks-')){
     const history=f.scanner==='gitleaks-history';
     block(ev.body,'Scan scope',history?'Git commit patches':'Current files');
@@ -1182,9 +1469,93 @@ function details(f){
     block(ev.body,null,f.message);
     if(sca&&f.file_path)block(ev.body,'Dependency file',f.file_path);
   }
+  if(f.cwe?.length){ev.body.append(el('div','subhead','Classification'));const links=el('div','links');links.style.display='flex';links.style.flexDirection='column';links.style.gap='4px';for(const c of f.cwe)links.append(cweLink(c));ev.body.append(links)}
   body.append(ev.card);
-  if(f.cwe?.length){const cl=card('Classification','tag');const links=el('div','links');links.style.display='flex';links.style.flexDirection='column';links.style.gap='4px';for(const c of f.cwe)links.append(cweLink(c));cl.body.append(links);body.append(cl.card)}
 }
+
+/* ---------- human review ---------- */
+function trio(f){
+  const box=el('div','trio');const a=assessment(f),sast=findingType(f)==='sast';
+  const cell=(label,value,color)=>{const c=el('div','cell');const b=el('b','',value);if(color)b.style.color=color;c.append(el('span','eyebrow',label),b);return c};
+  const ai=sast?(VERDICTS[outcome(f)]?.label||outcome(f))+(typeof a?.confidence==='number'?` · ${Math.round(a.confidence*100)}%`:''):'Not applicable';
+  const h=human(f);
+  box.append(cell('Scanner',`${f.severity.charAt(0).toUpperCase()+f.severity.slice(1)} · ${f.scanner}`),el('span','to','→'),
+    cell('AI review',ai,sast?VERDICTS[outcome(f)]?.color:null),el('span','to','→'),
+    cell('Human review',h?HUMAN[h].label+(reviews[f.id]?.reviewer?' · '+reviews[f.id].reviewer:''):'Not reviewed',h?HUMAN[h].color:'var(--faint)'));
+  const note=agreement(f);if(note)box.append(el('div','trio-note'+(note.override?' override':''),(note.override?'⚠ ':'✓ ')+note.text));
+  return box;
+}
+function humanCard(f){
+  const c=card('Human review','human','human');
+  if(reportProjectId==null){c.body.append(el('p','muted','Open this scan from a saved project to record a human review. Reports opened from a file are read-only.'));return c.card}
+  const r=reviews[f.id]||{verdict:null,comments:[]};
+  const buttons=el('div','vbuttons');buttons.setAttribute('role','group');buttons.setAttribute('aria-label','Human verdict');
+  for(const [key,d] of Object.entries(HUMAN)){
+    const b=el('button','vbtn '+key);b.type='button';b.setAttribute('aria-pressed',String(r.verdict===key));
+    b.append(document.createTextNode(d.label),el('kbd','',d.key));b.title=r.verdict===key?'Click again to clear':'Mark as '+d.label;
+    b.onclick=()=>setHuman(f,r.verdict===key?null:key);buttons.append(b);
+  }
+  const who=el('label','reviewer');const name=el('input');name.value=reviewer;name.placeholder='Your name';name.maxLength=80;name.autocomplete='name';
+  name.onchange=()=>{reviewer=name.value.trim();try{localStorage.setItem('appsec.reviewer',reviewer)}catch{}};
+  who.append('Reviewing as',name);
+  c.body.append(buttons,who);
+  if(r.verdict&&r.updated)c.body.append(el('p','help',`${HUMAN[r.verdict].label} by ${r.reviewer||'a reviewer'} · ${new Date(r.updated).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})}. Decisions carry over to later scans of this project.`));
+  c.body.append(el('div','subhead',`Discussion${r.comments.length?` (${r.comments.length})`:''}`));
+  const thread=el('ul','thread');
+  for(const m of r.comments){
+    const li=el('li','comment'+(m.kind==='event'?' event':''));
+    const av=el('span','avatar',(m.author||'?').slice(0,2));av.style.setProperty('--av',avatarStyle(m.author||'?'));
+    const main=el('div');const head=el('div','comment-head');head.append(el('b','',m.author||'Reviewer'),el('span','',new Date(m.created).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'})));
+    if(m.kind==='comment'){const del=el('button','','Delete');del.type='button';del.onclick=()=>deleteComment(f,m.id);head.append(del)}
+    main.append(head,el('p','',m.body));li.append(av,main);thread.append(li);
+  }
+  if(!r.comments.length)thread.append(el('li','help','No notes yet. Explain why this is or isn’t a real issue so others can trust the decision.'));
+  const composer=el('div','composer');const text=el('textarea');text.placeholder='Add a note: evidence, reasoning, ticket link…';text.maxLength=4000;text.setAttribute('aria-label','Comment');
+  const actions=el('div','composer-actions');const send=el('button','btn primary sm','Add note');send.type='button';
+  send.onclick=()=>addComment(f,text);text.onkeydown=e=>{if(e.key==='Enter'&&(e.metaKey||e.ctrlKey)){e.preventDefault();send.click()}};
+  actions.append(el('span','help','⌘/Ctrl + Enter to send'),send);composer.append(text,actions);
+  c.body.append(thread,composer);
+  return c.card;
+}
+function refreshAfterReview(f){const scroll=$('detail').scrollTop;render();if(visible.some(x=>x.id===f.id))select(f.id);$('detail').scrollTop=scroll}
+async function setHuman(f,verdict){
+  try{reviews[f.id]=await api(`/api/projects/${reportProjectId}/reviews`,{finding_id:f.id,verdict,reviewer});
+    toast(verdict?`Marked as ${HUMAN[verdict].label}`:'Review cleared');refreshAfterReview(f)}
+  catch(e){toast(e.message,true)}
+}
+async function addComment(f,text){
+  const body=text.value.trim();if(!body){text.focus();return}
+  try{reviews[f.id]=await api(`/api/projects/${reportProjectId}/comments`,{finding_id:f.id,body,author:reviewer});refreshAfterReview(f)}
+  catch(e){toast(e.message,true)}
+}
+async function deleteComment(f,id){
+  if(!confirm('Delete this note?'))return;
+  try{await api(`/api/comments/${id}/delete`,{});reviews[f.id].comments=reviews[f.id].comments.filter(m=>m.id!==id);refreshAfterReview(f)}
+  catch(e){toast(e.message,true)}
+}
+for(const [id,mode] of [['view-raw','raw'],['view-reviewed','reviewed']])$(id).onclick=()=>{
+  viewMode=mode;$('view-raw').setAttribute('aria-pressed',String(mode==='raw'));$('view-reviewed').setAttribute('aria-pressed',String(mode==='reviewed'));render()};
+
+/* ---------- PDF ---------- */
+$('export-pdf').onclick=()=>{
+  if(!report)return;
+  $('pdf-sub').textContent=currentRunId!=null?'A designed report of this scan with AI and human review.':'A designed report of this file. Human reviews are only included for saved scans.';
+  $('pdf-dialog').showModal();
+};
+$('pdf-cancel').onclick=()=>$('pdf-dialog').close();
+$('pdf-go').onclick=async()=>{
+  const go=$('pdf-go');go.disabled=true;go.textContent='Generating…';
+  const options={group:radio('pdf-group'),include_false_positives:$('pdf-fp').checked,include_code:$('pdf-code').checked,include_comments:$('pdf-comments').checked};
+  const body=currentRunId!=null?{run_id:currentRunId,options}:{report,name:$('report-title').textContent,options};
+  try{
+    const response=await fetch('/api/pdf',{method:'POST',headers:{'Content-Type':'application/json','X-Appsec-Token':token},body:JSON.stringify(body)});
+    if(!response.ok){let msg='The PDF could not be generated.';try{msg=(await response.json()).error||msg}catch{};throw Error(msg)}
+    const name=(response.headers.get('Content-Disposition')||'').match(/filename="([^"]+)"/)?.[1]||'appsec-report.pdf';
+    const url=URL.createObjectURL(await response.blob());const a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),2000);
+    $('pdf-dialog').close();toast('PDF downloaded');
+  }catch(e){toast(e.message,true)}
+  finally{go.disabled=false;go.textContent='Download PDF'}
+};
 
 /* ---------- scan form ---------- */
 function coverageDetails(item){
@@ -1225,10 +1596,17 @@ function coverageDetails(item){
   return box;
 }
 function currentProvider(){return providers.find(p=>p.name===radio('provider'))}
-function mode(){return $('ai-toggle').checked&&!radio('scanner').startsWith('gitleaks-')?'triage':'scan'}
+function mode(){return $('ai-toggle').checked&&scannerNames(scannerSpec()).includes('semgrep')?'triage':'scan'}
 function updateForm(){
   const remote=radio('source')==='remote',p=currentProvider(),triage=mode()==='triage';
-  $('ai-toggle').disabled=radio('scanner').startsWith('gitleaks-');
+  const spec=scannerSpec(),hasCode=scannerNames(spec).includes('semgrep');
+  $('ai-toggle').disabled=!hasCode;
+  $('ai-toggle').closest('.step')?.querySelector('.step-head .help')?.setAttribute('data-note',hasCode?'':'AI review needs Code issues: it only reviews code findings, and secrets are never sent to AI.');
+  const secrets=[...document.querySelectorAll('input[name="scan-kind"]:checked')].some(i=>i.value==='gitleaks');
+  $('secret-scope').classList.toggle('hidden',!secrets);
+  $('secret-scope-help').textContent=radio('secret-scope')==='gitleaks-history'
+    ?'Checks every available commit, including secrets later removed. Remote repositories are cloned with full history.'
+    :'Checks the files as they are now, including uncommitted changes.';
   $('ai-options').classList.toggle('hidden',!triage);
   const warn=triage&&p&&!p.configured;
   $('provider-warning').classList.toggle('hidden',!warn);
@@ -1237,7 +1615,7 @@ function updateForm(){
   $('model-help').textContent=p&&!p.default_model?`${p.label} has no default model. Enter one here or set a default in Settings.`:'Leave empty to use the default from Settings.';
   $('privacy-note').textContent=`Short source excerpts around each code finding are sent to ${p?.label||'the selected provider'}. Use AI review only for code you are allowed to share.`;
   const target=$('target').value.trim();
-  const parts=[target?`Scan ${target}`:'Choose a repository',`for ${SCANNERS[radio('scanner')]}`];
+  const parts=[target?`Scan ${target}`:'Choose a repository',spec?`for ${describeScanners(spec)}`:'(choose what to look for)'];
   if(triage)parts.push(`then AI-review up to ${$('limit').value||0} code findings with ${p?.label||'AI'}${($('model').value.trim()||p?.default_model)?' ('+($('model').value.trim()||p.default_model)+')':''}`);
   $('scan-summary').textContent=parts.join(' ')+'.';
   $('target-help').textContent=remote?(inContainer?'Use a GitHub, GitLab, Bitbucket Cloud or Azure Repos clone URL. For private HTTPS repos, add an access token below.':'Use a GitHub, GitLab, Bitbucket Cloud or Azure Repos clone URL. HTTPS can open browser sign-in through Git Credential Manager. SSH uses your existing agent.'):inContainer?'The mounted repository is at /workspace. You can also enter a subfolder.':'Use Browse… or paste a full path. Relative paths start from where you launched the dashboard.';
@@ -1262,7 +1640,7 @@ function applySource(clearTarget=true){
   updateForm();
 }
 for(const r of document.querySelectorAll('input[name="source"]'))r.onchange=()=>applySource();
-for(const r of document.querySelectorAll('input[name="scanner"]'))r.onchange=updateForm;
+for(const r of document.querySelectorAll('input[name="scan-kind"],input[name="secret-scope"]'))r.onchange=updateForm;
 for(const id of ['branch','model','limit','ai-toggle'])$(id).addEventListener('input',updateForm);
 $('target').addEventListener('input',()=>{$('repository-token').value='';repositoryAccess=null;updateForm()});
 $('repository-token').addEventListener('input',()=>{repositoryAccess=null;updateForm()});
@@ -1401,9 +1779,10 @@ $('repository-access').onclick=async()=>{
 };
 function formData(){
   return {name:$('project-name').value,project_id:projectId,source:radio('source'),target:$('target').value.trim(),branch:$('branch').value,
-    scanner:radio('scanner'),mode:mode(),limit:Number($('limit').value),provider:radio('provider')||'openai',model:$('model').value.trim()};
+    scanner:scannerSpec(),mode:mode(),limit:Number($('limit').value),provider:radio('provider')||'openai',model:$('model').value.trim()};
 }
 function checkForm(){
+  if(!scannerSpec()){toast('Choose at least one thing to look for.',true);document.querySelector('input[name="scan-kind"]').focus();return false}
   if(repositoryChecking&&radio('source')==='remote'){toast('Wait for the repository access check to finish.');return false}
   if(!$('target').value.trim()){toast(radio('source')==='remote'?'Enter a repository URL.':'Choose a repository folder.',true);$('target').focus();return false}
   const limit=Number($('limit').value);if(!Number.isInteger(limit)||limit<0||limit>100){toast('Findings to review must be a whole number from 0 to 100.',true);return false}
@@ -1417,7 +1796,12 @@ function checkForm(){
 function renderProjects(){
   const list=$('project-list');list.replaceChildren();
   if(!projects.length)list.append(el('p','side-empty','No saved projects yet. Your first scan creates one.'));
-  for(const p of projects){
+  $('project-count').textContent=projects.length?`· ${projects.length}`:'';
+  $('project-search-wrap').classList.toggle('hidden',projects.length<=6);
+  const q=projects.length>6?$('project-search').value.trim().toLowerCase():'';
+  const shown=projects.filter(p=>!q||`${p.name} ${p.target} ${p.branch||''}`.toLowerCase().includes(q));
+  if(projects.length&&!shown.length)list.append(el('p','side-empty','No projects match.'));
+  for(const p of shown){
     const row=el('div','project-row');
     const b=el('button','project');b.type='button';b.setAttribute('aria-current',String(p.id===projectId));b.title=p.name;
     const initials=(p.name.match(/[A-Za-z0-9]/g)||['?']).slice(0,2).join('');
@@ -1441,7 +1825,7 @@ function applyProject(){
   $('scan-subtitle').textContent=p?(p.available===false?'This project’s repository is not mounted, so it can’t be scanned again. Its saved reports are in the sidebar.':'Run another scan of this saved project. Choose “+ New” for a different repository.'):'Pick a repository, choose what to check, and optionally let AI review the results.';
   $('save-project').classList.toggle('hidden',Boolean(p));$('delete-project').classList.toggle('hidden',!p);
   $('run').disabled=busy||p?.available===false;
-  $('history-wrap').classList.toggle('hidden',!p);
+  updateHistoryPicker();
   updateForm();
 }
 async function selectProject(id,{fromUser=false}={}){
@@ -1470,7 +1854,7 @@ async function openRun(id,{show=true}={}){
     const stored=await api('/api/runs/'+id);if(serial!==viewGeneration)return;
     if(stored.report){
       if(show){$('loading-sub').textContent=`Preparing ${stored.report.scan?.findings?.length??0} findings and ${stored.report.assessments?.length??0} AI reviews…`;await nextFrame()}
-      load(stored.report,label);reportProjectId=projectId;markRun(id);setCurrentRun(id);hideLoading();
+      load(stored.report,label);reportProjectId=projectId;markRun(id);setCurrentRun(id);hideLoading();loadReviews();
     }else{hideLoading();toast(stored.error||'This scan is still running.',Boolean(stored.error))}
   }catch(e){hideLoading();toast(e.message,true)}
   finally{button?.classList.remove('loading')}
@@ -1485,6 +1869,8 @@ async function showHistory(){
   const generation=++viewGeneration,history=$('history');history.replaceChildren();
   if(projectId==null)return [];
   const runs=await api('/api/projects/'+projectId+'/runs');if(generation!==viewGeneration)return null;
+  $('history-count').textContent=runs.length;
+  $('history-project').textContent=projects.find(p=>p.id===projectId)?.name||'Scan history';
   if(!runs.length)history.append(el('p','side-empty','No scans yet.'));
   for(const run of runs){
     const when=new Date(run.started).toLocaleString(undefined,{dateStyle:'medium',timeStyle:'short'});
@@ -1492,11 +1878,12 @@ async function showHistory(){
     const row=el('div','run-row');
     const b=el('button','run '+(run.status||''));b.type='button';b.dataset.id=run.id;b.title=run.status||'';
     const ai=run.mode==='triage'?'AI review'+(run.settings?.provider?` (${providers.find(p=>p.name===run.settings.provider)?.label||run.settings.provider})`:''):'scan only';
-    b.append(el('span','dot'),el('span','run-when',when),el('span','run-meta',[run.scanner,ai,run.revision?.slice(0,7)].filter(Boolean).join(' · ')));
+    const kinds=scannerNames(run.scanner).map(n=>({semgrep:'Code',trivy:'Dependencies','gitleaks-files':'Secrets','gitleaks-history':'Secrets (history)'})[n]||n).join(' + ');
+    b.append(el('span','dot'),el('span','run-when',when),el('span','run-meta',[kinds,ai,run.revision?.slice(0,7)].filter(Boolean).join(' · ')));
     const again=el('button','rerun');again.type='button';again.title='Rerun this scan with the same settings';again.setAttribute('aria-label','Rerun scan from '+when);
     again.innerHTML=RERUN_ICON;again.disabled=busy||projects.find(p=>p.id===projectId)?.available===false;
-    again.onclick=()=>rerun(run.id);row.append(b,again);
-    b.onclick=()=>{closeDrawer();openRun(run.id)};
+    again.onclick=()=>{closeHistory();rerun(run.id)};row.append(b,again);
+    b.onclick=()=>{closeDrawer();closeHistory();openRun(run.id)};
     history.append(row);
   }
   return runs;
@@ -1516,7 +1903,7 @@ const serverNow=()=>Date.now()/1000+clockOffset;
 function placeholderSteps(scan){
   // Shown for the moment between pressing Start and the first server update.
   const steps=[{id:'prepare',label:scan?.source==='remote'?'Clone repository':'Check repository folder',status:'running'}];
-  const names=scan?.scanner==='all'?['semgrep','trivy']:[scan?.scanner||'semgrep'];
+  const names=scannerNames(scan?.scanner);
   for(const n of names)steps.push({id:'scan:'+n,label:SCAN_STEPS[n],status:'pending'});
   if(scan?.mode==='triage')steps.push({id:'triage',label:'AI review',status:'pending'});
   steps.push({id:'report',label:'Write report',status:'pending'});
@@ -1630,7 +2017,7 @@ async function poll(initial=false){
     if(job.status==='running'){lastJob=job;running(true,job.phase);renderProgress('running',job);setTimeout(poll,1000);return}
     const wasRunning=busy;running(false);
     if(job.project_id!=null&&(wasRunning||initial))await refreshProjects(job.project_id);
-    if(job.report){load(job.report,wasRunning?'Just now':'Most recent scan');reportProjectId=job.project_id??null;setCurrentRun(job.run_id??null);markRun(job.run_id)}
+    if(job.report){load(job.report,wasRunning?'Just now':'Most recent scan');reportProjectId=job.project_id??null;setCurrentRun(job.run_id??null);markRun(job.run_id);loadReviews()}
     if(wasRunning){
       lastJob=job;
       if(job.report){renderProgress('done',job);toast('Scan complete')}
@@ -1650,6 +2037,22 @@ $('scan-form').onsubmit=async e=>{
   }
   catch(err){running(false);renderProgress('form');toast(err.message,true)}
 };
+
+/* ---------- scan history dropdown ---------- */
+// Scan history belongs to the selected project's work: show it on Scan and Results only.
+function updateHistoryPicker(){
+  const show=projectId!=null&&currentView!=='settings';
+  $('history-wrap').classList.toggle('hidden',!show);if(!show)closeHistory();
+}
+function closeHistory(){$('history-pop').classList.add('hidden');$('history-toggle').setAttribute('aria-expanded','false')}
+$('history-toggle').onclick=e=>{
+  e.stopPropagation();const open=$('history-pop').classList.toggle('hidden')===false;
+  $('history-toggle').setAttribute('aria-expanded',String(open));
+  if(open)$('history-pop').querySelector('.run[aria-current=true],.run')?.focus();
+};
+document.addEventListener('click',e=>{if(!$('history-wrap').contains(e.target))closeHistory()});
+document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!$('history-pop').classList.contains('hidden')){closeHistory();$('history-toggle').focus()}});
+$('project-search').addEventListener('input',renderProjects);
 
 /* ---------- delete project ---------- */
 const TRASH_ICON='<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 12a2 2 0 002 2h6a2 2 0 002-2l1-12M9 7V4h6v3"/></svg>';

@@ -17,11 +17,18 @@ from appsec_triage.scanners.trivy import TrivyScanner
 from appsec_triage.scanners.combined import CombinedScanner
 from appsec_triage.scanners.gitleaks import GitleaksScanner
 
-from appsec_triage.scanners.base import SCAN_CHOICES, SCAN_LABELS
+from appsec_triage.scanners.base import SCAN_LABELS, parse_scanners, scanner_spec
 
 
 def stop_on_sigterm(signum, frame):
     raise SystemExit(128 + signum)
+
+
+def scanner_argument(value):
+    try:
+        return scanner_spec(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from None
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -35,7 +42,9 @@ def main(argv: list[str] | None = None) -> int:
         command.add_argument("--output", type=Path, help="JSON file; defaults to stdout")
         command.add_argument("--config", type=Path, help="Application TOML configuration")
         command.add_argument("--max-findings", type=int, help="Limit assessments, never scan findings; 0 disables assessment")
-        command.add_argument("--scanner", choices=SCAN_CHOICES, default="semgrep")
+        command.add_argument("--scanner", type=scanner_argument, default="semgrep", metavar="SCANNERS",
+                             help="semgrep, trivy, gitleaks-files or gitleaks-history; combine with '+', "
+                                  "e.g. semgrep+trivy+gitleaks-files ('all' = semgrep+trivy)")
         command.add_argument("--provider", choices=tuple(PROVIDERS), help="AI provider for triage; defaults to AI_PROVIDER or openai")
         command.add_argument("--model", help="Model ID; defaults to the provider's *_MODEL setting")
         command.add_argument("--verbose", action="store_true")
@@ -44,7 +53,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "ui":
         from appsec_triage.web import serve
         return serve(args.port)
-    if args.command == "triage" and args.scanner.startswith("gitleaks-"):
+    if args.command == "triage" and all(name.startswith("gitleaks-") for name in parse_scanners(args.scanner)):
         parser.error("Use the scan command for Gitleaks. Secret findings stay out of AI review.")
     # Stopping a scan sends SIGTERM. Exit through normal cleanup so scanners started in
     # their own process groups (Semgrep) or by subprocess.run (Trivy) are stopped too.
@@ -63,7 +72,7 @@ def main(argv: list[str] | None = None) -> int:
         logging.basicConfig(level=logging.WARNING, format="%(levelname)s: %(message)s")
         logger.setLevel(level)
         progress = Progress(args.progress)
-        scanner_names = ["semgrep", "trivy"] if args.scanner == "all" else [args.scanner]
+        scanner_names = parse_scanners(args.scanner)
         plan = [{"id": f"scan:{name}", "label": SCAN_LABELS[name]} for name in scanner_names]
         if args.command == "triage":
             plan.append({"id": "triage", "label": "AI review"})

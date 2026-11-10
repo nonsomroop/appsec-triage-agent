@@ -173,3 +173,37 @@ def test_warnings_alone_keep_scan_completed(monkeypatch, tmp_path):
     monkeypatch.setattr(semgrep, "run_semgrep", lambda *args: (0, json.dumps(payload)))
     scan = SemgrepScanner().scan(tmp_path)
     assert scan.status == "completed" and scan.errors == [] and len(scan.warnings) == 1
+
+
+def test_parse_scanner_selections():
+    from appsec_triage.scanners.base import parse_scanners, scanner_spec
+    assert parse_scanners("all") == ["semgrep", "trivy"]
+    assert parse_scanners("gitleaks-history+semgrep") == ["semgrep", "gitleaks-history"]
+    assert scanner_spec("trivy+semgrep+gitleaks-files") == "semgrep+trivy+gitleaks-files"
+    for bad in ("", "semgrep+", "semgrep+semgrep", "gitleaks-files+gitleaks-history", "zap"):
+        with pytest.raises(ValueError):
+            parse_scanners(bad)
+
+
+def test_combined_scan_names_every_scanner(tmp_path):
+    from types import SimpleNamespace
+    from appsec_triage.models.scan import Scan
+    from appsec_triage.scanners.combined import CombinedScanner
+    parts = [SimpleNamespace(scan=lambda t, n=n: Scan(target=str(t), scanner=n, status="completed"))
+             for n in ("semgrep", "trivy", "gitleaks-files")]
+    assert CombinedScanner(parts).scan(tmp_path).scanner == "semgrep+trivy+gitleaks-files"
+
+
+def test_cli_accepts_scanner_combinations(monkeypatch, tmp_path, capsys):
+    from appsec_triage.cli import main
+    monkeypatch.setattr(semgrep, "run_semgrep", lambda *args: (0, '{"results": [], "errors": [], "version": "1"}'))
+    from appsec_triage.scanners import trivy as trivy_module
+    monkeypatch.setattr(trivy_module.TrivyScanner, "scan",
+                        lambda self, t: __import__("appsec_triage.models.scan", fromlist=["Scan"]).Scan(
+                            target=str(t), scanner="trivy", status="completed"))
+    assert main(["scan", str(tmp_path), "--scanner", "trivy+semgrep"]) == 0
+    assert json.loads(capsys.readouterr().out)["scan"]["scanner"] == "semgrep+trivy"
+    with pytest.raises(SystemExit):
+        main(["scan", str(tmp_path), "--scanner", "semgrep+nmap"])
+    with pytest.raises(SystemExit):
+        main(["triage", str(tmp_path), "--scanner", "gitleaks-files"])

@@ -5,6 +5,10 @@ from contextlib import closing, contextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 
+# Human review outcomes, kept separate from AI verdicts.
+REVIEW_VERDICTS = {"confirmed": "Confirmed", "false_positive": "False positive",
+                   "accepted_risk": "Accepted risk", "fixed": "Fixed"}
+
 
 class History:
     def __init__(self, directory):
@@ -31,6 +35,17 @@ class History:
                     status TEXT NOT NULL, revision TEXT, error TEXT, report TEXT
                 );
                 CREATE INDEX IF NOT EXISTS runs_project ON runs(project_id, id);
+                CREATE TABLE IF NOT EXISTS reviews (
+                    project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    finding_id TEXT NOT NULL, verdict TEXT NOT NULL, reviewer TEXT NOT NULL DEFAULT '',
+                    updated TEXT NOT NULL, PRIMARY KEY(project_id, finding_id)
+                );
+                CREATE TABLE IF NOT EXISTS comments (
+                    id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+                    finding_id TEXT NOT NULL, kind TEXT NOT NULL DEFAULT 'comment', author TEXT NOT NULL DEFAULT '',
+                    body TEXT NOT NULL, created TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS comments_finding ON comments(project_id, finding_id, id);
             """)
             # Older databases predate saved run settings (finding limit, AI provider and model).
             if "settings" not in {row["name"] for row in db.execute("PRAGMA table_info(runs)")}:
@@ -82,6 +97,8 @@ class History:
             if not db.execute("SELECT 1 FROM projects WHERE id=?", (project,)).fetchone():
                 return None
             removed = db.execute("DELETE FROM runs WHERE project_id=?", (project,)).rowcount
+            db.execute("DELETE FROM comments WHERE project_id=?", (project,))
+            db.execute("DELETE FROM reviews WHERE project_id=?", (project,))
             db.execute("DELETE FROM projects WHERE id=?", (project,))
             return removed
 
@@ -102,3 +119,61 @@ class History:
             if row:
                 return {"status": row["status"], "error": row["error"],
                         "report": json.loads(row["report"]) if row["report"] else None}
+
+    # ---------- human review ----------
+    @staticmethod
+    def _now():
+        return datetime.now(timezone.utc).isoformat()
+
+    def reviews(self, project):
+        """Human verdicts and comment threads for a project, keyed by finding ID."""
+        with self.connection() as db:
+            result = {}
+            for row in db.execute("SELECT finding_id,verdict,reviewer,updated FROM reviews WHERE project_id=?", (project,)):
+                result[row["finding_id"]] = {"verdict": row["verdict"], "reviewer": row["reviewer"],
+                                             "updated": row["updated"], "comments": []}
+            for row in db.execute("SELECT id,finding_id,kind,author,body,created FROM comments "
+                                  "WHERE project_id=? ORDER BY id", (project,)):
+                entry = result.setdefault(row["finding_id"], {"verdict": None, "reviewer": "", "updated": None, "comments": []})
+                entry["comments"].append({key: row[key] for key in ("id", "kind", "author", "body", "created")})
+            return result
+
+    def set_review(self, project, finding, verdict, reviewer):
+        """Set or clear a verdict and record the change in the finding's thread."""
+        if verdict is not None and verdict not in REVIEW_VERDICTS:
+            raise ValueError("Unknown review verdict")
+        now = self._now()
+        with self.connection() as db:
+            previous = db.execute("SELECT verdict FROM reviews WHERE project_id=? AND finding_id=?",
+                                  (project, finding)).fetchone()
+            previous = previous["verdict"] if previous else None
+            if previous == verdict:
+                return False
+            if verdict is None:
+                db.execute("DELETE FROM reviews WHERE project_id=? AND finding_id=?", (project, finding))
+                body = f"Cleared the review (was {REVIEW_VERDICTS[previous]})"
+            else:
+                db.execute("INSERT INTO reviews(project_id,finding_id,verdict,reviewer,updated) VALUES(?,?,?,?,?) "
+                           "ON CONFLICT(project_id,finding_id) DO UPDATE SET verdict=excluded.verdict,"
+                           "reviewer=excluded.reviewer,updated=excluded.updated",
+                           (project, finding, verdict, reviewer, now))
+                body = f"Marked as {REVIEW_VERDICTS[verdict]}" + (f" (was {REVIEW_VERDICTS[previous]})" if previous else "")
+            db.execute("INSERT INTO comments(project_id,finding_id,kind,author,body,created) VALUES(?,?,'event',?,?,?)",
+                       (project, finding, reviewer, body, now))
+            return True
+
+    def add_comment(self, project, finding, author, body):
+        now = self._now()
+        with self.connection() as db:
+            comment = db.execute("INSERT INTO comments(project_id,finding_id,kind,author,body,created) "
+                                 "VALUES(?,?,'comment',?,?,?)", (project, finding, author, body, now)).lastrowid
+        return {"id": comment, "kind": "comment", "author": author, "body": body, "created": now}
+
+    def delete_comment(self, comment):
+        """Delete a written comment. Review events stay as the audit trail."""
+        with self.connection() as db:
+            row = db.execute("SELECT project_id FROM comments WHERE id=? AND kind='comment'", (comment,)).fetchone()
+            if not row:
+                return None
+            db.execute("DELETE FROM comments WHERE id=?", (comment,))
+            return row["project_id"]

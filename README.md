@@ -162,7 +162,7 @@ The dashboard has two views:
   scanner details and CWE links. Use <kbd>j</kbd>/<kbd>k</kbd> to move between
   findings and <kbd>/</kbd> to search.
 
-Saved projects and their scan history are in the sidebar. **Open report** loads
+Saved projects are in the sidebar (with a search box once you have more than six); the selected project's scans are under **Scan history** in the top bar. **Open report** loads
 an existing JSON report.
 
 While a scan runs, the progress screen shows each step live: cloning or checking
@@ -196,12 +196,14 @@ Remote repositories are left untouched (temporary clones are already
 removed after every scan). A project cannot be deleted while it is being scanned.
 New scans save bounded source excerpts in the report, including in Semgrep-only mode.
 Older reports need a new scan to include source code. Excluded or unavailable files
-show an explanation instead. Exported reports include these excerpts; treat them as sensitive. **Export**
+show an explanation instead. Exported reports include these excerpts; treat them as sensitive. **JSON** (next to PDF report)
 downloads the complete report regardless of active filters. Imported reports stay
 in the browser and are not uploaded to the local server.
 
-To scan, enter an existing local repository folder, choose what to check, and
-optionally turn on **AI review**. Relative paths resolve from the folder where the UI was
+To scan, enter an existing local repository folder, tick what to look for (**Code
+issues**, **Vulnerable dependencies** and/or **Secrets**, in current files or Git
+history; any combination runs as one scan with one report), and optionally turn on
+**AI review**, which needs Code issues and never receives secret findings. Relative paths resolve from the folder where the UI was
 started. With AI review on, pick a provider and optionally a model. Connect
 providers in **Settings** first; saved keys are write-only and never returned to
 the browser. Selected source excerpts are sent to the chosen provider in AI mode. The assessment limit never removes scanner findings.
@@ -225,6 +227,54 @@ this directory in the named `projects` volume. Restarting or recreating the
 container preserves reports. Removing the volume deletes its history.
 Each developer has a local project library. Reports can contain source excerpts.
 Imported JSON remains in the browser. Export a report to share a copy.
+
+### Human review
+
+Every finding (code, dependency or secret) has a **Human review** card next to
+the AI review. Mark it **Confirmed**, **False positive**, **Accepted risk** or
+**Fixed** (keyboard: `c`, `f`, `a`, `x`), and add notes such as evidence or a
+ticket link. Each verdict change is recorded in the finding's discussion as an
+audit trail that can't be deleted; written notes can be.
+
+Reviews belong to the saved project and are keyed by the finding's stable ID, so
+decisions carry over to later scans of the same project. Reports opened from a
+file are read-only.
+
+Human verdicts are kept separate from AI verdicts:
+
+- Each finding shows **Scanner → AI review → Human review** and flags when the
+  reviewer overrode the AI.
+- The **Human review** summary shows the raw scanner count against the count
+  after review (false positives and fixed items removed); click a verdict to
+  filter.
+- **Scanner view** shows every finding, striking through reviewed false
+  positives and fixed items; **Reviewed view** hides them.
+
+### PDF reports
+
+**PDF report** in the results header downloads a designed PDF of the open scan: a cover
+page, summary tiles, a severity chart, a scanner-versus-review comparison and a
+per-category table, then every finding with its AI and human verdicts, review
+notes, fix and optional code excerpt. Group findings by **category** (code,
+dependencies, secrets), **severity**, **human review** or **file**; each group is
+a bookmark in the PDF's sidebar. You can leave out false positives, review notes
+or code excerpts. With code excerpts the PDF contains source code, so share it
+accordingly.
+
+Saved scans are rendered from the server's copy with their stored reviews.
+
+The report is an A4 portrait document with a title page and document control
+table, contents, numbered sections (executive summary with an overall risk
+rating, scope and methodology, findings overview, detailed findings with IDs
+such as F-001) and a finding index, with running headers and "Page X of Y".
+Fonts come from the operating system, so nothing is bundled: running text is
+Times New Roman, headings and tables are Arial, and code uses the platform's
+coding font (Consolas on Windows, Menlo on macOS, DejaVu Sans Mono on Linux and
+in Docker). Docker uses Liberation Serif and Liberation Sans, which have the same
+metrics as Times New Roman and Arial. Any missing font falls back to the PDF
+viewer's built-in Times, Helvetica or Courier.
+Characters a font lacks, such as Thai, fall back to another installed font, and
+tabs and invisible characters in code are normalised so nothing prints as a box.
 
 ### Remote Git repositories
 
@@ -356,10 +406,15 @@ a completed scan with no findings does not prove that all dependencies were iden
 ```bash
 appsec-triage scan ./your-repository --scanner trivy --output reports/sca.json
 appsec-triage scan ./your-repository --scanner all --output reports/combined.json
+appsec-triage scan ./your-repository --scanner semgrep+trivy+gitleaks-files --output reports/full.json
 ```
 
-The default scanner remains Semgrep. In the UI choose **SCA - Trivy** or **SAST + SCA**
-under Scanner. Local folders and remote checkouts support both choices.
+`--scanner` takes one scanner or several joined with `+` (`semgrep`, `trivy`,
+`gitleaks-files`, `gitleaks-history`; `all` means `semgrep+trivy`). Choose one secret
+scope at a time.
+
+The default scanner remains Semgrep. In the UI tick **Vulnerable dependencies**, alone or
+with the other scans. Local folders and remote checkouts support every combination.
 Dependency findings include the advisory ID, package, installed version, available
 fixed version and dependency file. Missing fixes are shown explicitly; no source
 line is invented. Export preserves these fields. Scanner errors remain visible,
