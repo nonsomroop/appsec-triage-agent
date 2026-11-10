@@ -403,7 +403,7 @@ def test_rerun_repeats_saved_settings(monkeypatch, tmp_path):
         status, body = request(server, "POST", f"/api/runs/{first['run_id']}/rerun", "{}", headers)
         rerun = json.loads(body)
         assert status == 202 and rerun["rerun_of"] == first["run_id"] and rerun["run_id"] != first["run_id"]
-        assert rerun["scan"] == {"source": "local", "scanner": "all", "mode": "triage", "limit": 7,
+        assert rerun["scan"] == {"source": "local", "scanner": "semgrep+trivy", "mode": "triage", "limit": 7,
                                  "provider": "anthropic", "model": "claude-sonnet-5-5"}
         assert calls[0] == calls[1][:6] + (first["run_id"],) + calls[1][7:]
         assert request(server, "POST", f"/api/runs/{rerun['run_id']}/rerun", "{}", headers)[0] == 409
@@ -645,3 +645,20 @@ def test_pdf_for_saved_scan_and_uploaded_report(tmp_path):
         for body, status in bad:
             assert request(server, "POST", "/api/pdf", json.dumps(body), headers)[0] == status
         assert request(server, "POST", "/api/pdf", json.dumps({"run_id": run}))[0] == 403
+
+
+def test_scanner_combinations(monkeypatch):
+    calls = []
+    monkeypatch.setattr(LocalServer, "scan", lambda self, *args, **kwargs: calls.append(args))
+    with running_server() as server:
+        headers = {"X-Appsec-Token": server.token}
+        base = {"target": str(Path.cwd()), "mode": "scan", "limit": 0}
+        for scanner, status in [("gitleaks-files+semgrep+trivy", 202), ("semgrep+semgrep", 400),
+                                ("gitleaks-files+gitleaks-history", 400), ("", 400), ("semgrep+nmap", 400)]:
+            server.job = {"status": "idle"}
+            assert request(server, "POST", "/api/scan", json.dumps({**base, "scanner": scanner}), headers)[0] == status, scanner
+        assert calls[0][5] == "semgrep+trivy+gitleaks-files"
+        server.job = {"status": "idle"}
+        triage = {**base, "mode": "triage", "scanner": "trivy+gitleaks-files"}
+        status, body = request(server, "POST", "/api/scan", json.dumps(triage), headers)
+        assert status == 400 and "code (SAST)" in body

@@ -20,7 +20,7 @@ from pydantic import ValidationError
 from appsec_triage.repositories import (
     RepositoryError, check_repository_access, clone_repository, validate_remote, validate_repository_token,
 )
-from appsec_triage.scanners.base import SCAN_CHOICES
+from appsec_triage.scanners.base import parse_scanners, scanner_spec
 from appsec_triage.folder_picker import FolderPickerError, choose_folder
 from appsec_triage.history import REVIEW_VERDICTS, History
 from appsec_triage.reporting.json_reporter import Report
@@ -206,7 +206,7 @@ class LocalServer(ThreadingHTTPServer):
                              "detail": target if source == "remote" else None})
                 self.publish(state, started)
                 if source == "remote":
-                    clone_options = {"full_history": True} if scanner == "gitleaks-history" else {}
+                    clone_options = {"full_history": True} if "gitleaks-history" in parse_scanners(scanner) else {}
                     if repository_token:
                         clone_options["token"] = repository_token
                     scan_target = str(clone_repository(target, branch, Path(directory), **clone_options))
@@ -660,10 +660,12 @@ class Handler(BaseHTTPRequestHandler):
         try:
             target, mode, limit = data["target"], data.get("mode", "scan"), data.get("limit", 0)
             scanner = data.get("scanner", "semgrep")
-            if scanner not in SCAN_CHOICES:
-                raise ValueError()
-            if scanner.startswith("gitleaks-") and mode == "triage":
-                return self.respond(400, {"error": "Secret scans run without AI review."})
+            try:
+                scanner = scanner_spec(scanner)
+            except (ValueError, AttributeError):
+                return self.respond(400, {"error": "Choose at least one valid scanner."})
+            if mode == "triage" and "semgrep" not in parse_scanners(scanner):
+                return self.respond(400, {"error": "AI review needs a code (SAST) scan. Secret findings are never sent to AI."})
             provider, model = data.get("provider", "openai"), data.get("model", "")
             if provider not in PROVIDERS or not isinstance(model, str) or not MODEL_ID.fullmatch(model.strip()):
                 return self.respond(400, {"error": "Choose a supported AI provider and a valid model ID."})
